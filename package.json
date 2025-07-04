@@ -1,0 +1,13 @@
+{
+  "name": "game-manager",
+  "version": "1.0.0",
+  "description": "Game Manager Application",
+  "scripts": {
+    "start": "concurrently \"cd backend && npm start\" \"cd frontend && npm start\"",
+    "install-deps": "cd backend && npm install && cd ../frontend && npm install && npm install",
+    "postinstall": "npm run install-deps"
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
+} 
