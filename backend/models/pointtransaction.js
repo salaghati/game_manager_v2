@@ -25,7 +25,8 @@ module.exports = (sequelize, DataTypes) => {
     transaction_date: DataTypes.DATE,
     created_at: DataTypes.DATE,
     daily_point: DataTypes.INTEGER,
-    final_amount: DataTypes.INTEGER
+    final_amount: DataTypes.INTEGER,
+    rate: DataTypes.FLOAT
   }, {
     sequelize,
     modelName: 'PointTransaction',

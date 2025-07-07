@@ -3,20 +3,15 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up (queryInterface, Sequelize) {
-    /**
-     * Add altering commands here.
-     *
-     * Example:
-     * await queryInterface.createTable('users', { id: Sequelize.INTEGER });
-     */
+    await queryInterface.addColumn('PointTransactions', 'rate', {
+      type: Sequelize.FLOAT,
+      allowNull: false,
+      defaultValue: 2.0,
+      comment: 'Tỉ lệ rate tại thời điểm tạo transaction (lưu giữ để không thay đổi khi rate máy thay đổi)'
+    });
   },
 
   async down (queryInterface, Sequelize) {
-    /**
-     * Add reverting commands here.
-     *
-     * Example:
-     * await queryInterface.dropTable('users');
-     */
+    await queryInterface.removeColumn('PointTransactions', 'rate');
   }
 };

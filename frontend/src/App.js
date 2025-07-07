@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import MainPage from './pages/MainPage';
+import AdvancePaymentPage from './pages/AdvancePaymentPage';
 
 // Hàm kiểm tra đã đăng nhập hay chưa (dựa vào localStorage)
 function RequireAuth({ children }) {
@@ -19,6 +20,12 @@ function App() {
         <Route path="/" element={
           <RequireAuth>
             <MainPage />
+          </RequireAuth>
+        } />
+        {/* Trang quản lý tạm ứng/thanh toán */}
+        <Route path="/advance-payment" element={
+          <RequireAuth>
+            <AdvancePaymentPage />
           </RequireAuth>
         } />
       </Routes>

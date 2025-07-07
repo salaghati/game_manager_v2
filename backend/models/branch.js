@@ -14,6 +14,8 @@ module.exports = (sequelize, DataTypes) => {
       Branch.hasMany(models.Machine, { foreignKey: 'branch_id', as: 'machines' });
       // Branch has many Users
       Branch.hasMany(models.User, { foreignKey: 'branch_id', as: 'users' });
+      // Branch has many AdvanceTransactions
+      Branch.hasMany(models.AdvanceTransaction, { foreignKey: 'branch_id', as: 'advance_transactions' });
     }
   }
   Branch.init({

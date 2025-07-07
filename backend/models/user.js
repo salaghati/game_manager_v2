@@ -10,7 +10,12 @@ module.exports = (sequelize, DataTypes) => {
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
-      // define association here
+      // User has many AdvanceTransactions (as employee)
+      User.hasMany(models.AdvanceTransaction, { foreignKey: 'user_id', as: 'advance_transactions' });
+      // User has many AdvanceTransactions (as creator)
+      User.hasMany(models.AdvanceTransaction, { foreignKey: 'created_by', as: 'created_advance_transactions' });
+      // User belongs to Branch
+      User.belongsTo(models.Branch, { foreignKey: 'branch_id', as: 'branch' });
     }
   }
   User.init({

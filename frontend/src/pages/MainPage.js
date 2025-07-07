@@ -111,6 +111,7 @@ function PointEntryForm({ machine, date, token, onSave, yesterdayBalance, disabl
       )}
       <hr />
       <p><strong>Daily Point:</strong> {dailyPoint}</p>
+      <p><strong>Rate hiện tại:</strong> x{machine?.rate || 2}</p>
       <p><strong>Final Amount (Thành tiền):</strong> {finalAmount.toLocaleString('vi-VN')} VNĐ</p>
       <button 
         onClick={handleSave} 
@@ -157,7 +158,14 @@ function BranchManagement({ token }) {
       setBranches(res.data);
     } catch (error) {
       console.error("Lỗi lấy danh sách chi nhánh", error);
-      setError('Không thể lấy danh sách chi nhánh');
+      if (error.response?.status === 401) {
+        // Token hết hạn
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      } else {
+        setError('Không thể lấy danh sách chi nhánh');
+      }
     } finally {
       setLoading(false);
     }
@@ -418,7 +426,14 @@ function MachineManagement({ token }) {
       setMachines(res.data);
     } catch (error) {
       console.error("Lỗi lấy danh sách máy", error);
-      setError('Không thể lấy danh sách máy');
+      if (error.response?.status === 401) {
+        // Token hết hạn
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      } else {
+        setError('Không thể lấy danh sách máy');
+      }
     } finally {
       setLoading(false);
     }
@@ -715,6 +730,7 @@ function DataEntry({ token }) {
     final_amount: ''
   });
   const [demoMode, setDemoMode] = useState(true); // True = cho phép sửa ngày đã nhập (demo), False = block ngày đã nhập
+  const [filterDate, setFilterDate] = useState(''); // Filter ngày cho bảng lịch sử
 
   // Lấy danh sách máy khi load
   useEffect(() => {
@@ -728,7 +744,14 @@ function DataEntry({ token }) {
         if (res.data.length > 0) setSelectedMachineId(res.data[0].id);
       } catch (error) {
         console.error("Lỗi lấy danh sách máy", error);
-        setError('Không thể lấy danh sách máy');
+        if (error.response?.status === 401) {
+          // Token hết hạn
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        } else {
+          setError('Không thể lấy danh sách máy');
+        }
       } finally {
         setLoading(false);
       }
@@ -924,6 +947,15 @@ function DataEntry({ token }) {
       setLoading(false);
     }
   };
+
+  // Filter history theo ngày nếu có filterDate
+  const filteredHistory = useMemo(() => {
+    if (!filterDate) return history;
+    return history.filter(h => {
+      const transactionDate = new Date(h.transaction_date).toISOString().slice(0, 10);
+      return transactionDate === filterDate;
+    });
+  }, [history, filterDate]);
   
   const selectedMachine = machines.find(m => m.id === parseInt(selectedMachineId));
 
@@ -1013,9 +1045,39 @@ function DataEntry({ token }) {
 
         <div>
           {/* Cột phải: Lịch sử và reset */}
-          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
             <h3>Lịch sử nhập liệu</h3>
             <button onClick={handleReset} style={{backgroundColor: 'red', color: 'white', border: 'none', padding: 8, cursor: 'pointer'}}>Reset dữ liệu máy</button>
+          </div>
+          
+          {/* Filter ngày cụ thể */}
+          <div style={{display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12}}>
+            <label>Lọc theo ngày:</label>
+            <input 
+              type="date" 
+              value={filterDate} 
+              onChange={e => setFilterDate(e.target.value)}
+              style={{padding: 6, borderRadius: 4, border: '1px solid #ccc'}}
+            />
+            {filterDate && (
+              <button 
+                onClick={() => setFilterDate('')}
+                style={{
+                  padding: '4px 8px',
+                  backgroundColor: '#f44336',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 3,
+                  cursor: 'pointer',
+                  fontSize: 12
+                }}
+              >
+                Xóa lọc
+              </button>
+            )}
+            <span style={{fontSize: 12, color: '#666'}}>
+              {filterDate ? `Hiển thị: ${filteredHistory.length} dòng` : `Tổng: ${history.length} dòng`}
+            </span>
           </div>
           <div style={{maxHeight: 500, overflowY: 'auto'}}>
             <table border="1" cellPadding="6" style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }}>
@@ -1027,12 +1089,13 @@ function DataEntry({ token }) {
                   <th>Point Out</th>
                   <th>Balance</th>
                   <th>Daily Point</th>
+                  <th>Rate</th>
                   <th>Thành tiền (VNĐ)</th>
                   <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {history.map((h, index) => (
+                {filteredHistory.map((h, index) => (
                   <tr key={h.id}>
                     <td>{new Date(h.transaction_date).toLocaleDateString('vi-VN')}</td>
                     <td>{selectedMachine?.branch?.name || 'N/A'}</td>
@@ -1097,6 +1160,9 @@ function DataEntry({ token }) {
                       )}
                     </td>
                     <td>
+                      <strong>x{h.rate || 2}</strong>
+                    </td>
+                    <td>
                       {editingTransaction === h.id ? (
                         <input 
                           type="number" 
@@ -1110,7 +1176,7 @@ function DataEntry({ token }) {
                       )}
                     </td>
                     <td>
-                      {index === 0 ? ( // Chỉ hiển thị Edit cho dòng đầu tiên (mới nhất)
+                      {index === 0 && h.id === history[0]?.id ? ( // Chỉ hiển thị Edit cho dòng đầu tiên (mới nhất) trong toàn bộ lịch sử
                         editingTransaction === h.id ? (
                           <div style={{ display: 'flex', gap: 5 }}>
                             <button 
@@ -1174,6 +1240,282 @@ function DataEntry({ token }) {
   );
 }
 
+// Component Lịch sử nhập với filter range ngày
+function HistoryEntry({ token }) {
+  const navigate = useNavigate();
+  const [machines, setMachines] = useState([]);
+  const [selectedMachineId, setSelectedMachineId] = useState('');
+  const [fromDate, setFromDate] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 30); // Mặc định 30 ngày trước
+    return date.toISOString().slice(0, 10);
+  });
+  const [toDate, setToDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Lấy danh sách máy khi load
+  useEffect(() => {
+    const fetchMachines = async () => {
+      try {
+        setLoading(true);
+        const res = await axios.get('http://localhost:3002/api/machines', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setMachines(res.data);
+        if (res.data.length > 0) setSelectedMachineId(res.data[0].id);
+      } catch (error) {
+        console.error("Lỗi lấy danh sách máy", error);
+        if (error.response?.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        } else {
+          setError('Không thể lấy danh sách máy');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMachines();
+  }, [token]);
+
+  // Lấy lịch sử theo range ngày
+  useEffect(() => {
+    if (!selectedMachineId || !fromDate || !toDate) return;
+
+    const fetchHistory = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await axios.get('http://localhost:3002/api/history', {
+          params: { 
+            machine_id: selectedMachineId,
+            from_date: fromDate,
+            to_date: toDate,
+            limit: 1000 // Tăng limit để hiển thị nhiều dữ liệu hơn
+          },
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setHistory(res.data);
+      } catch (err) {
+        console.error("Lỗi lấy lịch sử", err);
+        setError('Không thể lấy dữ liệu lịch sử. Vui lòng thử lại sau.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHistory();
+  }, [selectedMachineId, fromDate, toDate, token]);
+
+  const selectedMachine = machines.find(m => m.id === parseInt(selectedMachineId));
+
+  // Tính tổng các chỉ số
+  const totals = useMemo(() => {
+    return history.reduce((acc, h) => ({
+      pointsIn: acc.pointsIn + (h.points_in || 0),
+      pointsOut: acc.pointsOut + (h.points_out || 0),
+      dailyPoint: acc.dailyPoint + (h.daily_point || 0),
+      finalAmount: acc.finalAmount + (h.final_amount || 0)
+    }), { pointsIn: 0, pointsOut: 0, dailyPoint: 0, finalAmount: 0 });
+  }, [history]);
+
+  return (
+    <div style={{ maxWidth: 1200, margin: '40px auto', padding: 24, fontFamily: 'sans-serif' }}>
+      <h2 style={{ marginBottom: 24, color: '#333' }}>📈 Lịch sử nhập liệu theo khoảng thời gian</h2>
+      
+      {loading && <div style={{ textAlign: 'center', padding: 20 }}>Đang tải...</div>}
+      {error && <div style={{ color: 'red', padding: '10px 0', textAlign: 'center' }}>{error}</div>}
+
+      {/* Filters */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: '1fr 1fr 1fr auto', 
+        gap: 16, 
+        marginBottom: 24,
+        padding: 20,
+        backgroundColor: '#f8f9fa',
+        borderRadius: 8,
+        border: '1px solid #e9ecef'
+      }}>
+        <div>
+          <label style={{ display: 'block', marginBottom: 6, fontWeight: 'bold' }}>Chọn máy:</label>
+          <select 
+            value={selectedMachineId} 
+            onChange={e => setSelectedMachineId(e.target.value)} 
+            style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
+            disabled={loading}
+          >
+            {machines.map(m => (
+              <option key={m.id} value={m.id}>
+                {m.name} - {m.branch ? m.branch.name : 'Chưa có chi nhánh'}
+              </option>
+            ))}
+          </select>
+        </div>
+        
+        <div>
+          <label style={{ display: 'block', marginBottom: 6, fontWeight: 'bold' }}>Từ ngày:</label>
+          <input 
+            type="date" 
+            value={fromDate} 
+            onChange={e => setFromDate(e.target.value)} 
+            style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
+            disabled={loading}
+          />
+        </div>
+        
+        <div>
+          <label style={{ display: 'block', marginBottom: 6, fontWeight: 'bold' }}>Đến ngày:</label>
+          <input 
+            type="date" 
+            value={toDate} 
+            onChange={e => setToDate(e.target.value)} 
+            style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
+            disabled={loading}
+          />
+        </div>
+
+        <div style={{ alignSelf: 'end' }}>
+          <div style={{ fontSize: 14, fontWeight: 'bold', color: '#28a745' }}>
+            Tổng: {history.length} ngày
+          </div>
+          <div style={{ fontSize: 12, color: '#666' }}>
+            {fromDate} → {toDate}
+          </div>
+        </div>
+      </div>
+
+      {/* Tổng kết */}
+      {history.length > 0 && (
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(4, 1fr)', 
+          gap: 16, 
+          marginBottom: 24 
+        }}>
+          <div style={{ 
+            padding: 16, 
+            backgroundColor: '#e3f2fd', 
+            borderRadius: 8, 
+            textAlign: 'center',
+            border: '1px solid #bbdefb'
+          }}>
+            <div style={{ fontSize: 18, fontWeight: 'bold', color: '#1976d2' }}>
+              {totals.pointsIn.toLocaleString('vi-VN')}
+            </div>
+            <div style={{ fontSize: 12, color: '#666' }}>Tổng Point In</div>
+          </div>
+          
+          <div style={{ 
+            padding: 16, 
+            backgroundColor: '#fce4ec', 
+            borderRadius: 8, 
+            textAlign: 'center',
+            border: '1px solid #f8bbd9'
+          }}>
+            <div style={{ fontSize: 18, fontWeight: 'bold', color: '#c2185b' }}>
+              {totals.pointsOut.toLocaleString('vi-VN')}
+            </div>
+            <div style={{ fontSize: 12, color: '#666' }}>Tổng Point Out</div>
+          </div>
+          
+          <div style={{ 
+            padding: 16, 
+            backgroundColor: '#f3e5f5', 
+            borderRadius: 8, 
+            textAlign: 'center',
+            border: '1px solid #e1bee7'
+          }}>
+            <div style={{ fontSize: 18, fontWeight: 'bold', color: '#7b1fa2' }}>
+              {totals.dailyPoint.toLocaleString('vi-VN')}
+            </div>
+            <div style={{ fontSize: 12, color: '#666' }}>Tổng Daily Point</div>
+          </div>
+          
+          <div style={{ 
+            padding: 16, 
+            backgroundColor: '#e8f5e8', 
+            borderRadius: 8, 
+            textAlign: 'center',
+            border: '1px solid #c8e6c9'
+          }}>
+            <div style={{ fontSize: 18, fontWeight: 'bold', color: '#388e3c' }}>
+              {totals.finalAmount.toLocaleString('vi-VN')} VNĐ
+            </div>
+            <div style={{ fontSize: 12, color: '#666' }}>Tổng Thành Tiền</div>
+          </div>
+        </div>
+      )}
+
+      {/* Bảng lịch sử */}
+      <div style={{ backgroundColor: 'white', borderRadius: 8, overflow: 'hidden', border: '1px solid #e9ecef' }}>
+        <div style={{ maxHeight: 600, overflowY: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                         <thead style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
+               <tr>
+                 <th style={{ padding: 12, textAlign: 'left', fontWeight: 'bold' }}>Ngày</th>
+                 <th style={{ padding: 12, textAlign: 'left', fontWeight: 'bold' }}>Chi nhánh</th>
+                 <th style={{ padding: 12, textAlign: 'right', fontWeight: 'bold' }}>Point In</th>
+                 <th style={{ padding: 12, textAlign: 'right', fontWeight: 'bold' }}>Point Out</th>
+                 <th style={{ padding: 12, textAlign: 'right', fontWeight: 'bold' }}>Balance</th>
+                 <th style={{ padding: 12, textAlign: 'right', fontWeight: 'bold' }}>Daily Point</th>
+                 <th style={{ padding: 12, textAlign: 'center', fontWeight: 'bold' }}>Rate</th>
+                 <th style={{ padding: 12, textAlign: 'right', fontWeight: 'bold' }}>Thành tiền (VNĐ)</th>
+               </tr>
+             </thead>
+            <tbody>
+              {history.map((h, index) => (
+                <tr key={h.id} style={{ 
+                  borderBottom: '1px solid #e9ecef',
+                  '&:hover': { backgroundColor: '#f8f9fa' }
+                }}>
+                  <td style={{ padding: 12 }}>
+                    {new Date(h.transaction_date).toLocaleDateString('vi-VN', { 
+                      weekday: 'short', 
+                      year: 'numeric', 
+                      month: '2-digit', 
+                      day: '2-digit' 
+                    })}
+                  </td>
+                  <td style={{ padding: 12 }}>{selectedMachine?.branch?.name || 'N/A'}</td>
+                  <td style={{ padding: 12, textAlign: 'right', fontWeight: 'bold' }}>
+                    {h.points_in?.toLocaleString('vi-VN')}
+                  </td>
+                  <td style={{ padding: 12, textAlign: 'right', fontWeight: 'bold' }}>
+                    {h.points_out?.toLocaleString('vi-VN')}
+                  </td>
+                  <td style={{ padding: 12, textAlign: 'right' }}>
+                    <div style={{ fontSize: 11, color: '#666' }}>Hôm qua: {h.previous_balance?.toLocaleString('vi-VN')}</div>
+                    <div style={{ fontWeight: 'bold' }}>Hôm nay: {h.current_balance?.toLocaleString('vi-VN')}</div>
+                  </td>
+                                     <td style={{ padding: 12, textAlign: 'right', fontWeight: 'bold' }}>
+                     {h.daily_point?.toLocaleString('vi-VN')}
+                   </td>
+                   <td style={{ padding: 12, textAlign: 'center', fontWeight: 'bold', color: '#1976d2' }}>
+                     x{h.rate || 2}
+                   </td>
+                   <td style={{ padding: 12, textAlign: 'right', fontWeight: 'bold', color: '#28a745' }}>
+                     {h.final_amount?.toLocaleString('vi-VN')}
+                   </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        
+        {history.length === 0 && !loading && (
+          <div style={{ padding: 40, textAlign: 'center', color: '#666' }}>
+            Không có dữ liệu trong khoảng thời gian đã chọn
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MainPage() {
   const [activeTab, setActiveTab] = useState('data-entry');
   const navigate = useNavigate();
@@ -1232,6 +1574,20 @@ function MainPage() {
           📊 Nhập liệu
         </button>
         <button
+          onClick={() => setActiveTab('history-entry')}
+          style={{
+            padding: '15px 30px',
+            border: 'none',
+            backgroundColor: activeTab === 'history-entry' ? '#2196F3' : 'transparent',
+            color: activeTab === 'history-entry' ? 'white' : '#333',
+            cursor: 'pointer',
+            fontSize: 16,
+            borderBottom: activeTab === 'history-entry' ? '3px solid #1976D2' : 'none'
+          }}
+        >
+          📈 Lịch sử nhập
+        </button>
+        <button
           onClick={() => setActiveTab('machine-management')}
           style={{
             padding: '15px 30px',
@@ -1259,11 +1615,25 @@ function MainPage() {
         >
           🏢 Quản lý chi nhánh
         </button>
+        <button
+          onClick={() => navigate('/advance-payment')}
+          style={{
+            padding: '15px 30px',
+            border: 'none',
+            backgroundColor: 'transparent',
+            color: '#333',
+            cursor: 'pointer',
+            fontSize: 16
+          }}
+        >
+          💰 Tạm ứng/Thanh toán
+        </button>
       </div>
 
       {/* Tab Content */}
       <div>
         {activeTab === 'data-entry' && <DataEntry token={token} />}
+        {activeTab === 'history-entry' && <HistoryEntry token={token} />}
         {activeTab === 'machine-management' && <MachineManagement token={token} />}
         {activeTab === 'branch-management' && <BranchManagement token={token} />}
       </div>
