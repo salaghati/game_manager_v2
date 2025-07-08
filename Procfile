@@ -1,1 +1,1 @@
-web: cd backend && npm run db:migrate:prod && npm start 
+web: cd backend && npm run start:prod 
