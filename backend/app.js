@@ -44,6 +44,64 @@ app.get('/', (req, res) => {
   res.send('Game Manager API đang chạy!');
 });
 
+// Endpoint tạm thời để seed database
+app.post('/api/seed-database', async (req, res) => {
+  try {
+    // Kiểm tra xem đã có user admin chưa
+    const existingUser = await User.findOne({ where: { username: 'admin' } });
+    if (existingUser) {
+      return res.json({ message: 'Database đã có dữ liệu rồi!' });
+    }
+
+    // Tạo chi nhánh
+    const branch = await Branch.create({
+      name: 'Chi nhánh 1',
+      address: '123 Đường ABC',
+      phone: '0123456789',
+      manager_name: 'Nguyễn Văn A'
+    });
+
+    // Tạo user admin
+    const user = await User.create({
+      username: 'admin',
+      password: '123456',
+      full_name: 'Quản trị viên',
+      branch_id: branch.id,
+      role_id: 1
+    });
+
+    // Tạo 2 máy mẫu
+    await Machine.create({
+      machine_code: 'M001',
+      name: 'Máy Game 1',
+      branch_id: branch.id,
+      current_points: 0,
+      rate: 2
+    });
+
+    await Machine.create({
+      machine_code: 'M002',
+      name: 'Máy Game 2',
+      branch_id: branch.id,
+      current_points: 0,
+      rate: 2
+    });
+
+    res.json({ 
+      message: 'Seed database thành công!',
+      login: {
+        username: 'admin',
+        password: '123456'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Lỗi khi seed database',
+      error: error.message 
+    });
+  }
+});
+
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
