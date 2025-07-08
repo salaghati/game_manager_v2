@@ -16,7 +16,7 @@ app.use(express.json());
 
 // Định nghĩa các route ở đây
 
-const JWT_SECRET = 'game_manager_secret'; // Để demo, production nên dùng biến môi trường
+const JWT_SECRET = process.env.JWT_SECRET || 'game_manager_secret';
 
 // Middleware xác thực JWT
 function authenticateToken(req, res, next) {
