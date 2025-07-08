@@ -421,7 +421,7 @@ function MachineManagement({ token }) {
   const fetchMachines = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get('${API_CONFIG.BASE_URL}/api/machines', {
+      const res = await axios.get(`${API_CONFIG.BASE_URL}/api/machines`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMachines(res.data);
@@ -443,7 +443,7 @@ function MachineManagement({ token }) {
   // Lấy danh sách chi nhánh
   const fetchBranches = useCallback(async () => {
     try {
-      const res = await axios.get('${API_CONFIG.BASE_URL}/api/branches', {
+      const res = await axios.get(`${API_CONFIG.BASE_URL}/api/branches`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBranches(res.data);
@@ -482,7 +482,7 @@ function MachineManagement({ token }) {
         setSuccess('Cập nhật máy thành công!');
       } else {
         // Tạo máy mới
-        await axios.post('${API_CONFIG.BASE_URL}/api/machines', formData, {
+        await axios.post(`${API_CONFIG.BASE_URL}/api/machines`, formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setSuccess('Tạo máy mới thành công!');
@@ -1243,7 +1243,7 @@ function DataEntry({ token }) {
 
 // Component Lịch sử nhập với filter range ngày
 function HistoryEntry({ token }) {
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // Tạm thời comment để tránh lỗi unused
   const [machines, setMachines] = useState([]);
   const [selectedMachineId, setSelectedMachineId] = useState('');
   const [fromDate, setFromDate] = useState(() => {

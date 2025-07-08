@@ -202,7 +202,7 @@ const AdvancePaymentPage = () => {
 
     try {
       setLoading(true);
-      const response = await fetch('${API_CONFIG.BASE_URL}/api/advance-transactions/reset', {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/advance-transactions/reset`, {
         method: 'DELETE',
         headers
       });
