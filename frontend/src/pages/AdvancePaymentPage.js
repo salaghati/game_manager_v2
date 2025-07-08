@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './AdvancePaymentPage.css';
+import API_CONFIG from '../config/api';
 
 const AdvancePaymentPage = () => {
   const navigate = useNavigate();
@@ -39,7 +40,7 @@ const AdvancePaymentPage = () => {
   // Fetch users
   const fetchUsers = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:3002/api/users', { headers });
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/users`, { headers });
       const data = await response.json();
       if (response.ok) {
         setUsers(data);
@@ -61,7 +62,7 @@ const AdvancePaymentPage = () => {
   const fetchTransactions = useCallback(async () => {
     try {
       setLoading(true);
-      let url = 'http://localhost:3002/api/advance-transactions?limit=100';
+      let url = `${API_CONFIG.BASE_URL}/api/advance-transactions?limit=100`;
       if (selectedUser) url += `&user_id=${selectedUser}`;
       if (selectedType) url += `&type=${selectedType}`;
 
@@ -89,7 +90,7 @@ const AdvancePaymentPage = () => {
   const fetchSummary = useCallback(async () => {
     try {
       setLoading(true);
-      let url = 'http://localhost:3002/api/advance-transactions/summary';
+      let url = `${API_CONFIG.BASE_URL}/api/advance-transactions/summary`;
       if (selectedUser) url += `?user_id=${selectedUser}`;
 
       const response = await fetch(url, { headers });
@@ -120,7 +121,7 @@ const AdvancePaymentPage = () => {
         return;
       }
 
-      const response = await fetch('http://localhost:3002/api/advance-transactions', {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/advance-transactions`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -159,7 +160,7 @@ const AdvancePaymentPage = () => {
         return;
       }
 
-      const response = await fetch(`http://localhost:3002/api/advance-transactions/${paymentForm.advance_id}/payments`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/advance-transactions/${paymentForm.advance_id}/payments`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -201,7 +202,7 @@ const AdvancePaymentPage = () => {
 
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3002/api/advance-transactions/reset', {
+      const response = await fetch('${API_CONFIG.BASE_URL}/api/advance-transactions/reset', {
         method: 'DELETE',
         headers
       });

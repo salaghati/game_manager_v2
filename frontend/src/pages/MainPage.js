@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import API_CONFIG from '../config/api';
 
 // Component con để quản lý việc nhập liệu và tính toán
 function PointEntryForm({ machine, date, token, onSave, yesterdayBalance, disabled }) {
@@ -152,7 +153,7 @@ function BranchManagement({ token }) {
   const fetchBranches = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get('http://localhost:3002/api/branches', {
+      const res = await axios.get(`${API_CONFIG.BASE_URL}/api/branches`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBranches(res.data);
@@ -193,13 +194,13 @@ function BranchManagement({ token }) {
     try {
       if (editingBranch) {
         // Update chi nhánh
-        await axios.put(`http://localhost:3002/api/branches/${editingBranch.id}`, formData, {
+        await axios.put(`${API_CONFIG.BASE_URL}/api/branches/${editingBranch.id}`, formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setSuccess('Cập nhật chi nhánh thành công!');
       } else {
         // Tạo chi nhánh mới
-        await axios.post('http://localhost:3002/api/branches', formData, {
+        await axios.post(`${API_CONFIG.BASE_URL}/api/branches`, formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setSuccess('Tạo chi nhánh mới thành công!');
@@ -231,7 +232,7 @@ function BranchManagement({ token }) {
     }
 
     try {
-      await axios.delete(`http://localhost:3002/api/branches/${branch.id}`, {
+      await axios.delete(`${API_CONFIG.BASE_URL}/api/branches/${branch.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSuccess('Xóa chi nhánh thành công!');
@@ -420,7 +421,7 @@ function MachineManagement({ token }) {
   const fetchMachines = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get('http://localhost:3002/api/machines', {
+      const res = await axios.get('${API_CONFIG.BASE_URL}/api/machines', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMachines(res.data);
@@ -442,7 +443,7 @@ function MachineManagement({ token }) {
   // Lấy danh sách chi nhánh
   const fetchBranches = useCallback(async () => {
     try {
-      const res = await axios.get('http://localhost:3002/api/branches', {
+      const res = await axios.get('${API_CONFIG.BASE_URL}/api/branches', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBranches(res.data);
@@ -475,13 +476,13 @@ function MachineManagement({ token }) {
     try {
       if (editingMachine) {
         // Update máy
-        await axios.put(`http://localhost:3002/api/machines/${editingMachine.id}`, formData, {
+        await axios.put(`${API_CONFIG.BASE_URL}/api/machines/${editingMachine.id}`, formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setSuccess('Cập nhật máy thành công!');
       } else {
         // Tạo máy mới
-        await axios.post('http://localhost:3002/api/machines', formData, {
+        await axios.post('${API_CONFIG.BASE_URL}/api/machines', formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setSuccess('Tạo máy mới thành công!');
@@ -513,7 +514,7 @@ function MachineManagement({ token }) {
     }
 
     try {
-      await axios.delete(`http://localhost:3002/api/machines/${machine.id}`, {
+      await axios.delete(`${API_CONFIG.BASE_URL}/api/machines/${machine.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSuccess('Xóa máy thành công!');
@@ -737,7 +738,7 @@ function DataEntry({ token }) {
     const fetchMachines = async () => {
       try {
         setLoading(true);
-        const res = await axios.get('http://localhost:3002/api/machines', {
+        const res = await axios.get('${API_CONFIG.BASE_URL}/api/machines', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setMachines(res.data);
@@ -774,15 +775,15 @@ function DataEntry({ token }) {
 
         // Lấy giao dịch đầu tiên để kiểm tra
         const [firstTransactionRes, yesterdayRes, historyRes] = await Promise.all([
-          axios.get('http://localhost:3002/api/history', {
+          axios.get('${API_CONFIG.BASE_URL}/api/history', {
             params: { machine_id: selectedMachineId, limit: 1 },
             headers: { Authorization: `Bearer ${token}` }
           }),
-          axios.get('http://localhost:3002/api/point', {
+          axios.get('${API_CONFIG.BASE_URL}/api/point', {
             params: { machine_id: selectedMachineId, date: yesterdayStr },
             headers: { Authorization: `Bearer ${token}` }
           }),
-          axios.get('http://localhost:3002/api/history', {
+          axios.get('${API_CONFIG.BASE_URL}/api/history', {
             params: { machine_id: selectedMachineId, limit: 30 },
             headers: { Authorization: `Bearer ${token}` }
           })
@@ -817,7 +818,7 @@ function DataEntry({ token }) {
   // Kiểm tra ngày đã nhập dữ liệu chưa
   const checkDateAlreadyEntered = async (machineId, date) => {
     try {
-      const response = await axios.get('http://localhost:3002/api/point', {
+      const response = await axios.get('${API_CONFIG.BASE_URL}/api/point', {
         params: { machine_id: machineId, date: date },
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -842,7 +843,7 @@ function DataEntry({ token }) {
         }
       }
 
-      await axios.post('http://localhost:3002/api/point', data, {
+      await axios.post('${API_CONFIG.BASE_URL}/api/point', data, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -851,11 +852,11 @@ function DataEntry({ token }) {
       
       // Tải lại dữ liệu
       const [historyRes, currentPoint] = await Promise.all([
-        axios.get('http://localhost:3002/api/history', {
+        axios.get('${API_CONFIG.BASE_URL}/api/history', {
           params: { machine_id: selectedMachineId, limit: 30 },
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get('http://localhost:3002/api/point', {
+        axios.get('${API_CONFIG.BASE_URL}/api/point', {
           params: { 
             machine_id: selectedMachineId, 
             date: selectedDate
@@ -888,7 +889,7 @@ function DataEntry({ token }) {
   const handleReset = async () => {
     if (window.confirm('Bạn có chắc muốn xóa TOÀN BỘ lịch sử của máy này?')) {
       try {
-        await axios.delete('http://localhost:3002/api/history', {
+        await axios.delete('${API_CONFIG.BASE_URL}/api/history', {
           params: { machine_id: selectedMachineId },
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -929,7 +930,7 @@ function DataEntry({ token }) {
     try {
       setLoading(true);
       
-      const response = await axios.put(`http://localhost:3002/api/transactions/${editingTransaction}`, editForm, {
+      const response = await axios.put(`${API_CONFIG.BASE_URL}/api/transactions/${editingTransaction}`, editForm, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -1260,7 +1261,7 @@ function HistoryEntry({ token }) {
     const fetchMachines = async () => {
       try {
         setLoading(true);
-        const res = await axios.get('http://localhost:3002/api/machines', {
+        const res = await axios.get('${API_CONFIG.BASE_URL}/api/machines', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setMachines(res.data);
@@ -1289,7 +1290,7 @@ function HistoryEntry({ token }) {
       setLoading(true);
       setError('');
       try {
-        const res = await axios.get('http://localhost:3002/api/history', {
+        const res = await axios.get('${API_CONFIG.BASE_URL}/api/history', {
           params: { 
             machine_id: selectedMachineId,
             from_date: fromDate,
