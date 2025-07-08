@@ -893,9 +893,15 @@ function DataEntry({ token }) {
           params: { machine_id: selectedMachineId },
           headers: { Authorization: `Bearer ${token}` }
         });
+        
+        // ✅ CRITICAL FIX: Reset all cached data
         setHistory([]);
-        alert('Reset thành công!');
+        setYesterdayBalance(null); // 🔥 Reset yesterday balance cache!
+        setError(''); // Clear any errors
+        
+        alert('Reset thành công! Dữ liệu máy đã được xóa hoàn toàn.');
       } catch (error) {
+        console.error('Reset error:', error);
         alert('Reset thất bại');
       }
     }
