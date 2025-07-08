@@ -17,6 +17,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "start:prod": "npx serve -s build -p ${PORT:-3000}",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
