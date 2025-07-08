@@ -738,11 +738,11 @@ function DataEntry({ token }) {
     const fetchMachines = async () => {
       try {
         setLoading(true);
-        const res = await axios.get('${API_CONFIG.BASE_URL}/api/machines', {
+        const res = await axios.get(`${API_CONFIG.BASE_URL}/api/machines`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setMachines(res.data);
-        if (res.data.length > 0) setSelectedMachineId(res.data[0].id);
+        setMachines(res.data || []);
+        if (res.data && res.data.length > 0) setSelectedMachineId(res.data[0].id);
       } catch (error) {
         console.error("Lỗi lấy danh sách máy", error);
         if (error.response?.status === 401) {
@@ -775,15 +775,15 @@ function DataEntry({ token }) {
 
         // Lấy giao dịch đầu tiên để kiểm tra
         const [firstTransactionRes, yesterdayRes, historyRes] = await Promise.all([
-          axios.get('${API_CONFIG.BASE_URL}/api/history', {
+          axios.get(`${API_CONFIG.BASE_URL}/api/history`, {
             params: { machine_id: selectedMachineId, limit: 1 },
             headers: { Authorization: `Bearer ${token}` }
           }),
-          axios.get('${API_CONFIG.BASE_URL}/api/point', {
+          axios.get(`${API_CONFIG.BASE_URL}/api/point`, {
             params: { machine_id: selectedMachineId, date: yesterdayStr },
             headers: { Authorization: `Bearer ${token}` }
           }),
-          axios.get('${API_CONFIG.BASE_URL}/api/history', {
+          axios.get(`${API_CONFIG.BASE_URL}/api/history`, {
             params: { machine_id: selectedMachineId, limit: 30 },
             headers: { Authorization: `Bearer ${token}` }
           })
@@ -803,7 +803,7 @@ function DataEntry({ token }) {
           setError('');
         }
         
-        setHistory(historyRes.data);
+        setHistory(historyRes.data || []);
       } catch (err) {
         console.error("Lỗi lấy dữ liệu", err);
         setError('Không thể lấy dữ liệu. Vui lòng thử lại sau.');
@@ -818,7 +818,7 @@ function DataEntry({ token }) {
   // Kiểm tra ngày đã nhập dữ liệu chưa
   const checkDateAlreadyEntered = async (machineId, date) => {
     try {
-      const response = await axios.get('${API_CONFIG.BASE_URL}/api/point', {
+      const response = await axios.get(`${API_CONFIG.BASE_URL}/api/point`, {
         params: { machine_id: machineId, date: date },
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -843,7 +843,7 @@ function DataEntry({ token }) {
         }
       }
 
-      await axios.post('${API_CONFIG.BASE_URL}/api/point', data, {
+      await axios.post(`${API_CONFIG.BASE_URL}/api/point`, data, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -852,11 +852,11 @@ function DataEntry({ token }) {
       
       // Tải lại dữ liệu
       const [historyRes, currentPoint] = await Promise.all([
-        axios.get('${API_CONFIG.BASE_URL}/api/history', {
+        axios.get(`${API_CONFIG.BASE_URL}/api/history`, {
           params: { machine_id: selectedMachineId, limit: 30 },
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get('${API_CONFIG.BASE_URL}/api/point', {
+        axios.get(`${API_CONFIG.BASE_URL}/api/point`, {
           params: { 
             machine_id: selectedMachineId, 
             date: selectedDate
@@ -889,7 +889,7 @@ function DataEntry({ token }) {
   const handleReset = async () => {
     if (window.confirm('Bạn có chắc muốn xóa TOÀN BỘ lịch sử của máy này?')) {
       try {
-        await axios.delete('${API_CONFIG.BASE_URL}/api/history', {
+        await axios.delete(`${API_CONFIG.BASE_URL}/api/history`, {
           params: { machine_id: selectedMachineId },
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -958,7 +958,7 @@ function DataEntry({ token }) {
     });
   }, [history, filterDate]);
   
-  const selectedMachine = machines.find(m => m.id === parseInt(selectedMachineId));
+  const selectedMachine = machines && machines.length > 0 ? machines.find(m => m.id === parseInt(selectedMachineId)) : null;
 
   return (
     <div style={{ maxWidth: 900, margin: '40px auto', padding: 24, fontFamily: 'sans-serif' }}>
@@ -1261,11 +1261,11 @@ function HistoryEntry({ token }) {
     const fetchMachines = async () => {
       try {
         setLoading(true);
-        const res = await axios.get('${API_CONFIG.BASE_URL}/api/machines', {
+        const res = await axios.get(`${API_CONFIG.BASE_URL}/api/machines`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setMachines(res.data);
-        if (res.data.length > 0) setSelectedMachineId(res.data[0].id);
+        setMachines(res.data || []);
+        if (res.data && res.data.length > 0) setSelectedMachineId(res.data[0].id);
       } catch (error) {
         console.error("Lỗi lấy danh sách máy", error);
         if (error.response?.status === 401) {
@@ -1290,7 +1290,7 @@ function HistoryEntry({ token }) {
       setLoading(true);
       setError('');
       try {
-        const res = await axios.get('${API_CONFIG.BASE_URL}/api/history', {
+        const res = await axios.get(`${API_CONFIG.BASE_URL}/api/history`, {
           params: { 
             machine_id: selectedMachineId,
             from_date: fromDate,
@@ -1299,7 +1299,7 @@ function HistoryEntry({ token }) {
           },
           headers: { Authorization: `Bearer ${token}` }
         });
-        setHistory(res.data);
+        setHistory(res.data || []);
       } catch (err) {
         console.error("Lỗi lấy lịch sử", err);
         setError('Không thể lấy dữ liệu lịch sử. Vui lòng thử lại sau.');
@@ -1311,7 +1311,7 @@ function HistoryEntry({ token }) {
     fetchHistory();
   }, [selectedMachineId, fromDate, toDate, token]);
 
-  const selectedMachine = machines.find(m => m.id === parseInt(selectedMachineId));
+  const selectedMachine = machines && machines.length > 0 ? machines.find(m => m.id === parseInt(selectedMachineId)) : null;
 
   // Tính tổng các chỉ số
   const totals = useMemo(() => {
