@@ -1,7 +1,6 @@
 [variables]
 NODE_ENV = "production"
 CI = "false"
-PORT = "3000"
 
 [phases.build]
 cmds = [
@@ -10,4 +9,4 @@ cmds = [
 ]
 
 [phases.start]
-cmd = "npx serve -s build -p 3000" 
+cmd = "npx serve -s build -p $PORT" 
