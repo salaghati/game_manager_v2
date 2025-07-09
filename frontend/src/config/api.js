@@ -9,12 +9,11 @@ const API_CONFIG = {
   // Tự động chọn URL dựa trên environment
   get BASE_URL() {
     // Nếu đang chạy trên production (domain railway.app) thì dùng production API
-    // Nếu đang chạy local (localhost) thì dùng production API để test
     if (window.location.hostname.includes('railway.app')) {
       return this.PRODUCTION;
     }
-    // Local development - vẫn dùng Railway API để test
-    return this.PRODUCTION;
+    // Nếu đang chạy local (localhost) thì dùng local development API
+    return this.DEVELOPMENT;
   }
 };
 

@@ -3,6 +3,11 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import API_CONFIG from '../config/api';
 
+// Import new pages for prize machine features
+import ProductManagementPage from './ProductManagementPage';
+import WarehouseManagementPage from './WarehouseManagementPage';
+import ReportsPage from './ReportsPage';
+
 // Component con để quản lý việc nhập liệu và tính toán
 function PointEntryForm({ machine, date, token, onSave, yesterdayBalance, disabled }) {
   const [pointsIn, setPointsIn] = useState('');
@@ -405,6 +410,7 @@ function BranchManagement({ token }) {
 function MachineManagement({ token }) {
   const [machines, setMachines] = useState([]);
   const [branches, setBranches] = useState([]);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingMachine, setEditingMachine] = useState(null);
@@ -412,7 +418,10 @@ function MachineManagement({ token }) {
     machine_code: '',
     name: '',
     rate: 2,
-    branch_id: ''
+    branch_id: '',
+    type: 'point_in_out',
+    standard_quantity: '',
+    product_id: ''
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -453,14 +462,35 @@ function MachineManagement({ token }) {
     }
   }, [token]);
 
+  // Lấy danh sách sản phẩm
+  const fetchProducts = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_CONFIG.BASE_URL}/api/products`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setProducts(res.data);
+    } catch (error) {
+      console.error("Lỗi lấy danh sách sản phẩm", error);
+    }
+  }, [token]);
+
   useEffect(() => {
     fetchMachines();
     fetchBranches();
-  }, [token, fetchMachines, fetchBranches]);
+    fetchProducts();
+  }, [token, fetchMachines, fetchBranches, fetchProducts]);
 
   // Reset form
   const resetForm = () => {
-    setFormData({ machine_code: '', name: '', rate: '', branch_id: '' });
+    setFormData({ 
+      machine_code: '', 
+      name: '', 
+      rate: 2, 
+      branch_id: '',
+      type: 'point_in_out',
+      standard_quantity: '',
+      product_id: ''
+    });
     setEditingMachine(null);
     setShowForm(false);
     setError('');
@@ -501,7 +531,10 @@ function MachineManagement({ token }) {
       machine_code: machine.machine_code,
       name: machine.name,
       rate: machine.rate,
-      branch_id: machine.branch_id
+      branch_id: machine.branch_id,
+      type: machine.type || 'point_in_out',
+      standard_quantity: machine.standard_quantity || '',
+      product_id: machine.product_id || ''
     });
     setEditingMachine(machine);
     setShowForm(true);
@@ -611,6 +644,63 @@ function MachineManagement({ token }) {
               <strong>⚠️ Lưu ý:</strong> Thay đổi rate chỉ ảnh hưởng đến các giao dịch mới, không ảnh hưởng đến dữ liệu đã lưu
             </small>
           </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <label>Loại máy: </label>
+            <select 
+              value={formData.type}
+              onChange={e => setFormData({...formData, type: e.target.value, standard_quantity: '', product_id: ''})}
+              required
+              style={{ width: '100%', padding: 8 }}
+            >
+              <option value="point_in_out">Máy tính điểm (Point In/Out)</option>
+              <option value="prize_dispensing">Máy gắp quà (Prize Dispensing)</option>
+            </select>
+            <small style={{ color: '#666' }}>
+              Chọn loại máy để xác định cách thức hoạt động
+            </small>
+          </div>
+
+          {/* Các field đặc biệt cho máy gắp quà */}
+          {formData.type === 'prize_dispensing' && (
+            <>
+              <div style={{ marginBottom: 12 }}>
+                <label>Sản phẩm quà: </label>
+                <select 
+                  value={formData.product_id}
+                  onChange={e => setFormData({...formData, product_id: parseInt(e.target.value)})}
+                  required
+                  style={{ width: '100%', padding: 8 }}
+                >
+                  <option value="">-- Chọn sản phẩm --</option>
+                  {products.map(product => (
+                    <option key={product.id} value={product.id}>
+                      {product.name} - {new Intl.NumberFormat('vi-VN').format(product.price)} VND
+                    </option>
+                  ))}
+                </select>
+                <small style={{ color: '#666' }}>
+                  Chọn loại quà mà máy này sẽ phát
+                </small>
+              </div>
+              
+              <div style={{ marginBottom: 12 }}>
+                <label>Số lượng tiêu chuẩn: </label>
+                <input 
+                  type="number" 
+                  value={formData.standard_quantity}
+                  onChange={e => setFormData({...formData, standard_quantity: parseInt(e.target.value) || ''})}
+                  min="1"
+                  required
+                  style={{ width: '100%', padding: 8 }}
+                  placeholder="Ví dụ: 50, 100, 200"
+                />
+                <small style={{ color: '#666' }}>
+                  Số lượng quà tối đa mà máy có thể chứa (được nạp vào đầu ngày)
+                </small>
+              </div>
+            </>
+          )}
           <div style={{ display: 'flex', gap: 10 }}>
             <button 
               type="submit"
@@ -651,9 +741,10 @@ function MachineManagement({ token }) {
             <tr style={{ backgroundColor: '#f2f2f2' }}>
               <th style={{ border: '1px solid #ddd', padding: 12 }}>Mã máy</th>
               <th style={{ border: '1px solid #ddd', padding: 12 }}>Tên máy</th>
+              <th style={{ border: '1px solid #ddd', padding: 12 }}>Loại máy</th>
               <th style={{ border: '1px solid #ddd', padding: 12 }}>Chi nhánh</th>
               <th style={{ border: '1px solid #ddd', padding: 12 }}>Tỉ lệ cược</th>
-              <th style={{ border: '1px solid #ddd', padding: 12 }}>Điểm hiện tại</th>
+              <th style={{ border: '1px solid #ddd', padding: 12 }}>Chi tiết</th>
               <th style={{ border: '1px solid #ddd', padding: 12 }}>Thao tác</th>
             </tr>
           </thead>
@@ -662,6 +753,18 @@ function MachineManagement({ token }) {
               <tr key={machine.id}>
                 <td style={{ border: '1px solid #ddd', padding: 12 }}>{machine.machine_code}</td>
                 <td style={{ border: '1px solid #ddd', padding: 12 }}>{machine.name}</td>
+                <td style={{ border: '1px solid #ddd', padding: 12 }}>
+                  <span style={{
+                    padding: '4px 8px',
+                    borderRadius: 4,
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    backgroundColor: machine.type === 'prize_dispensing' ? '#ff9800' : '#4caf50',
+                    color: 'white'
+                  }}>
+                    {machine.type === 'prize_dispensing' ? 'Máy gấu bông' : 'Máy tính điểm'}
+                  </span>
+                </td>
                 <td style={{ border: '1px solid #ddd', padding: 12 }}>
                   {machine.branch ? (
                     <div>
@@ -673,7 +776,16 @@ function MachineManagement({ token }) {
                   )}
                 </td>
                 <td style={{ border: '1px solid #ddd', padding: 12 }}>x{machine.rate}</td>
-                <td style={{ border: '1px solid #ddd', padding: 12 }}>{machine.current_points}</td>
+                <td style={{ border: '1px solid #ddd', padding: 12 }}>
+                  {machine.type === 'prize_dispensing' ? (
+                    <div>
+                      <div><strong>Sản phẩm:</strong> {machine.product_name || 'N/A'}</div>
+                      <div><strong>Số lượng tiêu chuẩn:</strong> {machine.standard_quantity || 'N/A'}</div>
+                    </div>
+                  ) : (
+                    <div><strong>Điểm hiện tại:</strong> {machine.current_points || 0}</div>
+                  )}
+                </td>
                 <td style={{ border: '1px solid #ddd', padding: 12 }}>
                   <button 
                     onClick={() => handleEdit(machine)}
@@ -741,8 +853,10 @@ function DataEntry({ token }) {
         const res = await axios.get(`${API_CONFIG.BASE_URL}/api/machines`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setMachines(res.data || []);
-        if (res.data && res.data.length > 0) setSelectedMachineId(res.data[0].id);
+        // Chỉ hiển thị máy thường (không phải máy gấu bông) trong tab nhập liệu
+        const regularMachines = (res.data || []).filter(m => m.type !== 'prize_dispensing');
+        setMachines(regularMachines);
+        if (regularMachines && regularMachines.length > 0) setSelectedMachineId(regularMachines[0].id);
       } catch (error) {
         console.error("Lỗi lấy danh sách máy", error);
         if (error.response?.status === 401) {
@@ -968,6 +1082,24 @@ function DataEntry({ token }) {
 
   return (
     <div style={{ maxWidth: 900, margin: '40px auto', padding: 24, fontFamily: 'sans-serif' }}>
+      <h2 style={{ marginBottom: 16, color: '#333' }}>✏️ Nhập liệu điểm máy</h2>
+      
+      <div style={{ 
+        padding: 16, 
+        backgroundColor: '#e8f5e8', 
+        borderRadius: 8, 
+        marginBottom: 20,
+        border: '1px solid #c8e6c9'
+      }}>
+        <div style={{ fontWeight: 'bold', color: '#2e7d32', marginBottom: 8 }}>
+          ℹ️ Thông tin quan trọng:
+        </div>
+        <div style={{ color: '#388e3c', fontSize: 14 }}>
+          • Tab này dành cho <strong>máy thường</strong> (Point In/Out)<br/>
+          • Máy gấu bông sử dụng tab "📋 Kiểm kê hàng ngày" riêng biệt
+        </div>
+      </div>
+
       {/* Toggle Demo Mode */}
       <div style={{ 
         marginBottom: 20, 
@@ -1025,6 +1157,7 @@ function DataEntry({ token }) {
               ))}
             </select>
           </div>
+
           <div style={{ marginBottom: 16 }}>
             <label>Chọn ngày: </label>
             <input 
@@ -1035,9 +1168,10 @@ function DataEntry({ token }) {
               disabled={loading}
             />
           </div>
-          <div style={{ border: '1px solid #eee', padding: 16, borderRadius: 8 }}>
-            <h3>Nhập liệu điểm máy</h3>
-            {selectedMachine && (
+          {/* Form nhập điểm cho máy thường */}
+          {selectedMachine && (
+            <div style={{ border: '1px solid #eee', padding: 16, borderRadius: 8 }}>
+              <h3>Nhập liệu điểm máy</h3>
               <PointEntryForm
                 machine={selectedMachine}
                 date={selectedDate}
@@ -1046,8 +1180,8 @@ function DataEntry({ token }) {
                 yesterdayBalance={yesterdayBalance}
                 disabled={loading}
               />
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <div>
@@ -1270,8 +1404,10 @@ function HistoryEntry({ token }) {
         const res = await axios.get(`${API_CONFIG.BASE_URL}/api/machines`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setMachines(res.data || []);
-        if (res.data && res.data.length > 0) setSelectedMachineId(res.data[0].id);
+        // Chỉ hiển thị máy thường (không phải máy gấu bông) trong tab lịch sử nhập
+        const regularMachines = (res.data || []).filter(m => m.type !== 'prize_dispensing');
+        setMachines(regularMachines);
+        if (regularMachines && regularMachines.length > 0) setSelectedMachineId(regularMachines[0].id);
       } catch (error) {
         console.error("Lỗi lấy danh sách máy", error);
         if (error.response?.status === 401) {
@@ -1331,7 +1467,23 @@ function HistoryEntry({ token }) {
 
   return (
     <div style={{ maxWidth: 1200, margin: '40px auto', padding: 24, fontFamily: 'sans-serif' }}>
-      <h2 style={{ marginBottom: 24, color: '#333' }}>📈 Lịch sử nhập liệu theo khoảng thời gian</h2>
+      <h2 style={{ marginBottom: 16, color: '#333' }}>📈 Lịch sử nhập liệu theo khoảng thời gian</h2>
+      
+      <div style={{ 
+        padding: 16, 
+        backgroundColor: '#e3f2fd', 
+        borderRadius: 8, 
+        marginBottom: 24,
+        border: '1px solid #bbdefb'
+      }}>
+        <div style={{ fontWeight: 'bold', color: '#1565c0', marginBottom: 8 }}>
+          ℹ️ Thông tin quan trọng:
+        </div>
+        <div style={{ color: '#1976d2', fontSize: 14 }}>
+          • Tab này chỉ hiển thị <strong>máy thường</strong> (Point In/Out)<br/>
+          • Để xem báo cáo <strong>máy gấu bông</strong>, vui lòng sử dụng tab "📈 Báo cáo"
+        </div>
+      </div>
       
       {loading && <div style={{ textAlign: 'center', padding: 20 }}>Đang tải...</div>}
       {error && <div style={{ color: 'red', padding: '10px 0', textAlign: 'center' }}>{error}</div>}
@@ -1523,6 +1675,153 @@ function HistoryEntry({ token }) {
   );
 }
 
+// Component chọn máy gấu bông để kiểm kê
+function DailyAuditSelector({ token }) {
+  const navigate = useNavigate();
+  const [machines, setMachines] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Lấy danh sách máy gấu bông
+  useEffect(() => {
+    const fetchPrizeMachines = async () => {
+      try {
+        setLoading(true);
+        const res = await axios.get(`${API_CONFIG.BASE_URL}/api/machines`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        // Chỉ lấy máy gấu bông
+        const prizeMachines = (res.data || []).filter(m => m.type === 'prize_dispensing');
+        setMachines(prizeMachines);
+      } catch (error) {
+        console.error("Lỗi lấy danh sách máy gấu bông", error);
+        if (error.response?.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        } else {
+          setError('Không thể lấy danh sách máy gấu bông');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPrizeMachines();
+  }, [token]);
+
+  const handleSelectMachine = (machine) => {
+    navigate(`/audit/${machine.id}`);
+  };
+
+  return (
+    <div style={{ maxWidth: 1000, margin: '40px auto', padding: 24, fontFamily: 'sans-serif' }}>
+      <h2 style={{ marginBottom: 24, color: '#333' }}>📋 Chọn máy gấu bông để kiểm kê</h2>
+      
+      <div style={{ 
+        padding: 16, 
+        backgroundColor: '#fff3cd', 
+        borderRadius: 8, 
+        marginBottom: 24,
+        border: '1px solid #ffeaa7'
+      }}>
+        <div style={{ fontWeight: 'bold', color: '#856404', marginBottom: 8 }}>
+          🧸 Hướng dẫn kiểm kê máy gấu bông:
+        </div>
+        <div style={{ color: '#856404', fontSize: 14 }}>
+          • Chọn máy gấu bông cần kiểm kê từ danh sách dưới đây<br/>
+          • Nhập số lượng quà hiện tại còn trong máy<br/>
+          • Hệ thống sẽ tự động tính toán số quà đã phát ra
+        </div>
+      </div>
+
+      {loading && <div style={{ textAlign: 'center', padding: 20 }}>Đang tải...</div>}
+      {error && <div style={{ color: 'red', padding: '10px 0', textAlign: 'center' }}>{error}</div>}
+
+      {machines.length === 0 && !loading && (
+        <div style={{ 
+          textAlign: 'center', 
+          padding: 40, 
+          backgroundColor: '#f8f9fa',
+          borderRadius: 8,
+          border: '1px solid #dee2e6'
+        }}>
+          <div style={{ fontSize: 18, marginBottom: 10 }}>🤔</div>
+          <div style={{ color: '#666', marginBottom: 16 }}>
+            Chưa có máy gấu bông nào trong hệ thống
+          </div>
+          <div style={{ fontSize: 14, color: '#999' }}>
+            Vui lòng thêm máy gấu bông ở tab "🎮 Quản lý máy"
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
+        {machines.map(machine => (
+          <div
+            key={machine.id}
+            onClick={() => handleSelectMachine(machine)}
+            style={{
+              border: '2px solid #e3f2fd',
+              borderRadius: 12,
+              padding: 20,
+              backgroundColor: 'white',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.borderColor = '#2196F3';
+              e.target.style.transform = 'translateY(-2px)';
+              e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.borderColor = '#e3f2fd';
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+              <span style={{ fontSize: 24, marginRight: 12 }}>🧸</span>
+              <div>
+                <h3 style={{ margin: 0, color: '#1976d2', fontSize: 18 }}>
+                  {machine.name}
+                </h3>
+                <div style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
+                  {machine.machine_code} • {machine.branch?.name}
+                </div>
+              </div>
+            </div>
+            
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 14, color: '#333' }}>
+                <strong>Sản phẩm:</strong> {machine.product_name || `ID #${machine.product_id}`}
+              </div>
+            </div>
+            
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 14, color: '#333' }}>
+                <strong>Số lượng tiêu chuẩn:</strong> {machine.standard_quantity} quà
+              </div>
+            </div>
+            
+            <div style={{ 
+              padding: 12, 
+              backgroundColor: '#f8f9fa', 
+              borderRadius: 8,
+              textAlign: 'center',
+              marginTop: 16
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 'bold', color: '#28a745' }}>
+                👆 Nhấn để kiểm kê
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function MainPage() {
   const [activeTab, setActiveTab] = useState('data-entry');
   const navigate = useNavigate();
@@ -1564,17 +1863,18 @@ function MainPage() {
       <div style={{
         backgroundColor: 'white',
         borderBottom: '1px solid #ddd',
-        display: 'flex'
+        display: 'flex',
+        flexWrap: 'wrap'
       }}>
         <button
           onClick={() => setActiveTab('data-entry')}
           style={{
-            padding: '15px 30px',
+            padding: '15px 20px',
             border: 'none',
             backgroundColor: activeTab === 'data-entry' ? '#2196F3' : 'transparent',
             color: activeTab === 'data-entry' ? 'white' : '#333',
             cursor: 'pointer',
-            fontSize: 16,
+            fontSize: 14,
             borderBottom: activeTab === 'data-entry' ? '3px solid #1976D2' : 'none'
           }}
         >
@@ -1583,12 +1883,12 @@ function MainPage() {
         <button
           onClick={() => setActiveTab('history-entry')}
           style={{
-            padding: '15px 30px',
+            padding: '15px 20px',
             border: 'none',
             backgroundColor: activeTab === 'history-entry' ? '#2196F3' : 'transparent',
             color: activeTab === 'history-entry' ? 'white' : '#333',
             cursor: 'pointer',
-            fontSize: 16,
+            fontSize: 14,
             borderBottom: activeTab === 'history-entry' ? '3px solid #1976D2' : 'none'
           }}
         >
@@ -1597,12 +1897,12 @@ function MainPage() {
         <button
           onClick={() => setActiveTab('machine-management')}
           style={{
-            padding: '15px 30px',
+            padding: '15px 20px',
             border: 'none',
             backgroundColor: activeTab === 'machine-management' ? '#2196F3' : 'transparent',
             color: activeTab === 'machine-management' ? 'white' : '#333',
             cursor: 'pointer',
-            fontSize: 16,
+            fontSize: 14,
             borderBottom: activeTab === 'machine-management' ? '3px solid #1976D2' : 'none'
           }}
         >
@@ -1611,26 +1911,82 @@ function MainPage() {
         <button
           onClick={() => setActiveTab('branch-management')}
           style={{
-            padding: '15px 30px',
+            padding: '15px 20px',
             border: 'none',
             backgroundColor: activeTab === 'branch-management' ? '#2196F3' : 'transparent',
             color: activeTab === 'branch-management' ? 'white' : '#333',
             cursor: 'pointer',
-            fontSize: 16,
+            fontSize: 14,
             borderBottom: activeTab === 'branch-management' ? '3px solid #1976D2' : 'none'
           }}
         >
           🏢 Quản lý chi nhánh
         </button>
         <button
+          onClick={() => setActiveTab('products')}
+          style={{
+            padding: '15px 20px',
+            border: 'none',
+            backgroundColor: activeTab === 'products' ? '#2196F3' : 'transparent',
+            color: activeTab === 'products' ? 'white' : '#333',
+            cursor: 'pointer',
+            fontSize: 14,
+            borderBottom: activeTab === 'products' ? '3px solid #1976D2' : 'none'
+          }}
+        >
+          🧸 Quản lý sản phẩm
+        </button>
+        <button
+          onClick={() => setActiveTab('warehouse')}
+          style={{
+            padding: '15px 20px',
+            border: 'none',
+            backgroundColor: activeTab === 'warehouse' ? '#2196F3' : 'transparent',
+            color: activeTab === 'warehouse' ? 'white' : '#333',
+            cursor: 'pointer',
+            fontSize: 14,
+            borderBottom: activeTab === 'warehouse' ? '3px solid #1976D2' : 'none'
+          }}
+        >
+          📦 Quản lý kho
+        </button>
+        <button
+          onClick={() => setActiveTab('daily-audit')}
+          style={{
+            padding: '15px 20px',
+            border: 'none',
+            backgroundColor: activeTab === 'daily-audit' ? '#2196F3' : 'transparent',
+            color: activeTab === 'daily-audit' ? 'white' : '#333',
+            cursor: 'pointer',
+            fontSize: 14,
+            borderBottom: activeTab === 'daily-audit' ? '3px solid #1976D2' : 'none'
+          }}
+        >
+          📋 Kiểm kê hàng ngày
+        </button>
+        <button
+          onClick={() => setActiveTab('reports')}
+          style={{
+            padding: '15px 20px',
+            border: 'none',
+            backgroundColor: activeTab === 'reports' ? '#2196F3' : 'transparent',
+            color: activeTab === 'reports' ? 'white' : '#333',
+            cursor: 'pointer',
+            fontSize: 14,
+            borderBottom: activeTab === 'reports' ? '3px solid #1976D2' : 'none'
+          }}
+        >
+          📊 Báo cáo
+        </button>
+        <button
           onClick={() => navigate('/advance-payment')}
           style={{
-            padding: '15px 30px',
+            padding: '15px 20px',
             border: 'none',
             backgroundColor: 'transparent',
             color: '#333',
             cursor: 'pointer',
-            fontSize: 16
+            fontSize: 14
           }}
         >
           💰 Tạm ứng/Thanh toán
@@ -1643,6 +1999,10 @@ function MainPage() {
         {activeTab === 'history-entry' && <HistoryEntry token={token} />}
         {activeTab === 'machine-management' && <MachineManagement token={token} />}
         {activeTab === 'branch-management' && <BranchManagement token={token} />}
+        {activeTab === 'products' && <ProductManagementPage />}
+        {activeTab === 'warehouse' && <WarehouseManagementPage />}
+        {activeTab === 'daily-audit' && <DailyAuditSelector token={token} />}
+        {activeTab === 'reports' && <ReportsPage />}
       </div>
     </div>
   );

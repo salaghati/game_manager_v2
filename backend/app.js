@@ -6,6 +6,12 @@ const jwt = require('jsonwebtoken');
 const { User, Machine, PointTransaction, Branch, AdvanceTransaction } = require('./models');
 const { Op } = require('sequelize');
 
+// Import new route files
+const productRoutes = require('./routes/products');
+const machineRoutes = require('./routes/machines');
+const auditRoutes = require('./routes/audits');
+const warehouseRoutes = require('./routes/warehouse');
+
 const app = express();
 
 // Cấu hình CORS
@@ -64,50 +70,12 @@ app.post('/api/login', async (req, res) => {
   res.json({ token, user: { id: user.id, username: user.username, full_name: user.full_name, role_id: user.role_id, branch_id: user.branch_id } });
 });
 
-/**
- * API: Lấy danh sách máy
- * Yêu cầu: Header Authorization: Bearer <token>
- * Trả về: Danh sách máy (admin xem tất cả, user thường chỉ xem máy trong chi nhánh)
- */
-app.get('/api/machines', authenticateToken, async (req, res) => {
-  try {
-    // Admin xem được tất cả máy, user thường chỉ xem máy trong chi nhánh của mình
-    // Chỉ lấy những máy chưa bị xóa (is_deleted = false)
-    const whereClause = req.user.role_id === 1 
-      ? { is_deleted: false } 
-      : { branch_id: req.user.branch_id, is_deleted: false };
-    
-    // Lấy danh sách máy kèm thông tin chi nhánh (chi nhánh cũng phải chưa bị xóa)
-    const machines = await Machine.findAll({ 
-      where: whereClause,
-      include: [{
-        model: Branch,
-        as: 'branch',
-        attributes: ['id', 'name', 'address', 'phone', 'manager_name'],
-        where: { is_deleted: false }
-      }],
-      order: [['branch_id', 'ASC'], ['machine_code', 'ASC']]
-    });
+// Use the new routes with authentication
+app.use('/api/products', authenticateToken, productRoutes);
+app.use('/api/machines', authenticateToken, machineRoutes);
+app.use('/api/audits', authenticateToken, auditRoutes);
+app.use('/api/warehouse', authenticateToken, warehouseRoutes);
 
-    // Lấy current_balance mới nhất cho từng máy
-    const machinesWithBalance = await Promise.all(machines.map(async (machine) => {
-      const latestTransaction = await PointTransaction.findOne({
-        where: { machine_id: machine.id },
-        order: [['transaction_date', 'DESC']],
-        attributes: ['current_balance']
-      });
-      
-      return {
-        ...machine.toJSON(),
-        current_points: latestTransaction ? latestTransaction.current_balance : 0
-      };
-    }));
-
-    res.json(machinesWithBalance);
-  } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message });
-  }
-});
 
 /**
  * API: Lấy dữ liệu nhập liệu của 1 máy theo ngày

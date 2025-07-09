@@ -20,6 +20,21 @@ module.exports = (sequelize, DataTypes) => {
     branch_id: DataTypes.INTEGER,
     current_points: DataTypes.INTEGER,
     rate: DataTypes.FLOAT,
+    type: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Type of machine: point_in_out or prize_dispensing'
+    },
+    standard_quantity: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: 'Standard number of prizes for prize_dispensing machines'
+    },
+    product_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: 'Associated product for prize_dispensing machines'
+    },
     created_at: DataTypes.DATE,
     is_deleted: {
       type: DataTypes.BOOLEAN,
