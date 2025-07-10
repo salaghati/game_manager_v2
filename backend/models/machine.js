@@ -35,6 +35,12 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       comment: 'Associated product for prize_dispensing machines'
     },
+    current_quantity: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0,
+      comment: 'Số lượng quà hiện tại trong máy (dành cho máy gắp gấu)'
+    },
     created_at: DataTypes.DATE,
     is_deleted: {
       type: DataTypes.BOOLEAN,

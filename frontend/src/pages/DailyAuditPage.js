@@ -10,7 +10,10 @@ const DailyAuditPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [auditData, setAuditData] = useState({
-    end_of_day_count: ''
+    end_of_day_count: '',
+    end_of_day_coins: '',
+    coin_value: 1000,
+    gift_cost: 50000
   });
 
   useEffect(() => {
@@ -66,6 +69,11 @@ const DailyAuditPage = () => {
       return;
     }
 
+    if (!auditData.end_of_day_coins || auditData.end_of_day_coins < 0) {
+      setError('Vui lòng nhập số xu cuối ngày hợp lệ');
+      return;
+    }
+
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -77,7 +85,10 @@ const DailyAuditPage = () => {
         },
         body: JSON.stringify({
           machine_id: parseInt(machineId),
-          end_of_day_count: parseInt(auditData.end_of_day_count)
+          end_of_day_count: parseInt(auditData.end_of_day_count),
+          end_of_day_coins: parseInt(auditData.end_of_day_coins),
+          coin_value: parseFloat(auditData.coin_value),
+          gift_cost: parseFloat(auditData.gift_cost)
         })
       });
 
@@ -99,6 +110,13 @@ const DailyAuditPage = () => {
   const calculateGiftsWon = () => {
     if (!machine || !auditData.end_of_day_count) return 0;
     return Math.max(0, machine.standard_quantity - parseInt(auditData.end_of_day_count));
+  };
+
+  const calculateRevenue = () => {
+    if (!auditData.end_of_day_coins || !auditData.coin_value || !auditData.gift_cost) return 0;
+    const coinsRevenue = parseInt(auditData.end_of_day_coins) * parseFloat(auditData.coin_value);
+    const giftsCost = calculateGiftsWon() * parseFloat(auditData.gift_cost);
+    return coinsRevenue - giftsCost;
   };
 
   if (loading && !machine) {
@@ -193,7 +211,52 @@ const DailyAuditPage = () => {
               </div>
             </div>
 
-            {auditData.end_of_day_count && (
+            <div className="form-row">
+              <div className="form-group">
+                <label>Số xu cuối ngày *</label>
+                <input
+                  type="number"
+                  name="end_of_day_coins"
+                  value={auditData.end_of_day_coins}
+                  onChange={handleInputChange}
+                  min="0"
+                  required
+                />
+                <small>Tổng số xu thu được cuối ngày</small>
+              </div>
+              
+              <div className="form-group">
+                <label>Giá trị mỗi xu (VND) *</label>
+                <input
+                  type="number"
+                  name="coin_value"
+                  value={auditData.coin_value}
+                  onChange={handleInputChange}
+                  min="100"
+                  step="100"
+                  required
+                />
+                <small>Giá tiền của 1 xu</small>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Giá vốn mỗi gấu (VND) *</label>
+                <input
+                  type="number"
+                  name="gift_cost"
+                  value={auditData.gift_cost}
+                  onChange={handleInputChange}
+                  min="0"
+                  step="1000"
+                  required
+                />
+                <small>Chi phí gấu bông (để tính lợi nhuận)</small>
+              </div>
+            </div>
+
+            {auditData.end_of_day_count && auditData.end_of_day_coins && (
               <div className="calculation-section">
                 <h4>Kết Quả Tính Toán</h4>
                 <div className="calculation-grid">
@@ -204,9 +267,27 @@ const DailyAuditPage = () => {
                     </span>
                   </div>
                   <div className="calc-item">
-                    <label>Công thức:</label>
+                    <label>Doanh thu từ xu:</label>
+                    <span className="calc-value">
+                      {(parseInt(auditData.end_of_day_coins || 0) * parseFloat(auditData.coin_value || 0)).toLocaleString()} VND
+                    </span>
+                  </div>
+                  <div className="calc-item">
+                    <label>Chi phí gấu bông:</label>
+                    <span className="calc-value">
+                      {(calculateGiftsWon() * parseFloat(auditData.gift_cost || 0)).toLocaleString()} VND
+                    </span>
+                  </div>
+                  <div className="calc-item total-revenue">
+                    <label>Doanh thu ròng:</label>
+                    <span className="calc-value">
+                      {calculateRevenue().toLocaleString()} VND
+                    </span>
+                  </div>
+                  <div className="calc-item">
+                    <label>Công thức doanh thu:</label>
                     <span className="calc-formula">
-                      {machine?.standard_quantity} - {auditData.end_of_day_count} = {calculateGiftsWon()}
+                      ({auditData.end_of_day_coins} xu × {parseInt(auditData.coin_value || 0).toLocaleString()} VND) - ({calculateGiftsWon()} gấu × {parseInt(auditData.gift_cost || 0).toLocaleString()} VND) = {calculateRevenue().toLocaleString()} VND
                     </span>
                   </div>
                 </div>
@@ -225,7 +306,7 @@ const DailyAuditPage = () => {
             </button>
             <button 
               type="submit" 
-              disabled={loading || !auditData.end_of_day_count}
+              disabled={loading || !auditData.end_of_day_count || !auditData.end_of_day_coins}
               className="btn btn-primary"
             >
               {loading ? 'Đang xử lý...' : 'Hoàn Tất Kiểm Kê'}

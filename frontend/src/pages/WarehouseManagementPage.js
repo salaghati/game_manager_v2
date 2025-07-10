@@ -4,16 +4,23 @@ import API_CONFIG from '../config/api';
 
 const WarehouseManagementPage = () => {
   const [stocks, setStocks] = useState([]);
+  const [machines, setMachines] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showStockInForm, setShowStockInForm] = useState(false);
+  const [showRefillForm, setShowRefillForm] = useState(false);
   const [stockInData, setStockInData] = useState({
     product_id: '',
+    quantity: ''
+  });
+  const [refillData, setRefillData] = useState({
+    machine_id: '',
     quantity: ''
   });
 
   useEffect(() => {
     fetchStocks();
+    fetchMachines();
   }, []);
 
   const fetchStocks = async () => {
@@ -38,6 +45,29 @@ const WarehouseManagementPage = () => {
       setError('Lỗi kết nối server');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMachines = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/machines`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Lọc chỉ lấy máy gắp gấu
+        const prizeMachines = data.filter(machine => machine.type === 'prize_dispensing');
+        setMachines(prizeMachines);
+      } else {
+        console.error('Không thể lấy danh sách máy');
+      }
+    } catch (err) {
+      console.error('Lỗi kết nối khi lấy danh sách máy');
     }
   };
 
@@ -93,6 +123,125 @@ const WarehouseManagementPage = () => {
     setError('');
   };
 
+  const handleRefillChange = (e) => {
+    const { name, value } = e.target;
+    setRefillData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleRefillSubmit = async (e) => {
+    e.preventDefault();
+    if (!refillData.machine_id || !refillData.quantity || refillData.quantity <= 0) {
+      setError('Vui lòng chọn máy và nhập số lượng hợp lệ');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/warehouse/refill-machine`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          machine_id: parseInt(refillData.machine_id),
+          quantity: parseInt(refillData.quantity)
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(result.message);
+        fetchStocks(); // Refresh kho
+        fetchMachines(); // Refresh máy
+        setRefillData({ machine_id: '', quantity: '' });
+        setShowRefillForm(false);
+        setError('');
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || 'Không thể nhập gấu vào máy');
+      }
+    } catch (err) {
+      setError('Lỗi kết nối server');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetRefillForm = () => {
+    setRefillData({ machine_id: '', quantity: '' });
+    setShowRefillForm(false);
+    setError('');
+  };
+
+  const handleResetWarehouse = async () => {
+    if (!window.confirm('⚠️ BẠN CÓ CHẮC MUỐN RESET TẤT CẢ HÀNG TỒN KHO VỀ 0?\n\nHành động này KHÔNG THỂ HOÀN TÁC!')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/warehouse/reset`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert('✅ ' + result.message);
+        fetchStocks(); // Refresh danh sách kho
+        setError('');
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || 'Không thể reset kho');
+      }
+    } catch (err) {
+      setError('Lỗi kết nối server');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetAudits = async () => {
+    if (!window.confirm('⚠️ BẠN CÓ CHẮC MUỐN RESET TẤT CẢ DỮ LIỆU KIỂM KÊ MÁY GẤU BÔNG?\n\nBao gồm:\n- Tất cả lịch sử kiểm kê\n- Số lượng quà trong tất cả máy gấu về 0\n\nHành động này KHÔNG THỂ HOÀN TÁC!')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/audits/reset`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert('✅ ' + result.message);
+        fetchMachines(); // Refresh danh sách máy
+        setError('');
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || 'Không thể reset kiểm kê');
+      }
+    } catch (err) {
+      setError('Lỗi kết nối server');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getStockStatus = (quantity) => {
     if (quantity === 0) return 'out-of-stock';
     if (quantity < 10) return 'low-stock';
@@ -109,13 +258,22 @@ const WarehouseManagementPage = () => {
     <div className="warehouse-management-page">
       <div className="page-header">
         <h1>Quản Lý Kho</h1>
-        <button 
-          className="btn btn-primary"
-          onClick={() => setShowStockInForm(true)}
-          disabled={loading || stocks.length === 0}
-        >
-          Nhập Kho
-        </button>
+        <div className="header-buttons">
+          <button 
+            className="btn btn-primary"
+            onClick={() => setShowStockInForm(true)}
+            disabled={loading || stocks.length === 0}
+          >
+            Nhập Kho
+          </button>
+          <button 
+            className="btn btn-secondary"
+            onClick={() => setShowRefillForm(true)}
+            disabled={loading || machines.length === 0}
+          >
+            Nhập Gấu Vào Máy
+          </button>
+        </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
@@ -158,6 +316,52 @@ const WarehouseManagementPage = () => {
                 </button>
                 <button type="submit" disabled={loading}>
                   {loading ? 'Đang nhập...' : 'Nhập Kho'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showRefillForm && (
+        <div className="form-modal">
+          <div className="form-container">
+            <h2>Nhập Gấu Vào Máy</h2>
+            <form onSubmit={handleRefillSubmit}>
+              <div className="form-group">
+                <label>Máy Gắp Gấu *</label>
+                <select
+                  name="machine_id"
+                  value={refillData.machine_id}
+                  onChange={handleRefillChange}
+                  required
+                >
+                  <option value="">Chọn máy</option>
+                  {machines.map(machine => (
+                    <option key={machine.id} value={machine.id}>
+                      {machine.name} (Hiện tại: {machine.current_quantity || 0}/{machine.standard_quantity})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Số Lượng Gấu *</label>
+                <input
+                  type="number"
+                  name="quantity"
+                  value={refillData.quantity}
+                  onChange={handleRefillChange}
+                  min="1"
+                  required
+                />
+                <small>Sẽ được lấy từ kho và đưa vào máy</small>
+              </div>
+              <div className="form-actions">
+                <button type="button" onClick={resetRefillForm} disabled={loading}>
+                  Hủy
+                </button>
+                <button type="submit" disabled={loading}>
+                  {loading ? 'Đang nhập...' : 'Nhập Vào Máy'}
                 </button>
               </div>
             </form>
@@ -229,6 +433,40 @@ const WarehouseManagementPage = () => {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Section Thao Tác Nguy Hiểm */}
+      <div className="danger-zone">
+        <h2>⚠️ Thao Tác Nguy Hiểm</h2>
+        <div className="danger-actions">
+          <div className="danger-item">
+            <div className="danger-description">
+              <h3>Reset Hàng Tồn Kho</h3>
+              <p>Đưa tất cả sản phẩm trong kho về số lượng 0. Thường dùng khi bắt đầu lại hệ thống hoặc kiểm kê tổng thể.</p>
+            </div>
+            <button 
+              className="btn btn-danger"
+              onClick={handleResetWarehouse}
+              disabled={loading}
+            >
+              Reset Kho
+            </button>
+          </div>
+          
+          <div className="danger-item">
+            <div className="danger-description">
+              <h3>Reset Dữ Liệu Kiểm Kê Máy Gấu</h3>
+              <p>Xóa tất cả lịch sử kiểm kê và đưa số lượng quà trong máy về 0. Dùng khi muốn bắt đầu lại hoàn toàn cho máy gấu bông.</p>
+            </div>
+            <button 
+              className="btn btn-danger"
+              onClick={handleResetAudits}
+              disabled={loading}
+            >
+              Reset Kiểm Kê
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -19,6 +19,11 @@
   font-size: 2rem;
 }
 
+.header-buttons {
+  display: flex;
+  gap: 15px;
+}
+
 .btn {
   padding: 10px 20px;
   border: none;
@@ -42,6 +47,15 @@
 
 .btn-primary:hover:not(:disabled) {
   background-color: #0056b3;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #545b62;
 }
 
 .error-message {
@@ -321,5 +335,78 @@
   .status-badge {
     font-size: 11px;
     padding: 3px 8px;
+  }
+}
+
+/* Danger Zone Styles */
+.danger-zone {
+  margin-top: 50px;
+  padding: 30px;
+  background-color: #fff5f5;
+  border: 2px solid #f56565;
+  border-radius: 10px;
+}
+
+.danger-zone h2 {
+  color: #e53e3e;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.danger-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+.danger-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background-color: white;
+  border: 1px solid #fed7d7;
+  border-radius: 8px;
+}
+
+.danger-description h3 {
+  color: #e53e3e;
+  margin: 0 0 8px 0;
+  font-size: 18px;
+}
+
+.danger-description p {
+  color: #666;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.btn-danger {
+  background-color: #e53e3e;
+  color: white;
+  padding: 12px 24px;
+  font-weight: bold;
+  min-width: 140px;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #c53030;
+}
+
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .danger-item {
+    flex-direction: column;
+    text-align: center;
+    gap: 15px;
+  }
+  
+  .btn-danger {
+    width: 100%;
   }
 } 
