@@ -7,7 +7,7 @@ const { Op } = require('sequelize');
 
 // POST /api/audits - Submit a daily machine audit
 router.post('/', async (req, res) => {
-  const { machine_id, end_of_day_count, end_of_day_coins, coin_value, gift_cost } = req.body;
+  const { machine_id, start_of_day_count, end_of_day_count, end_of_day_coins, coin_value, gift_cost } = req.body;
   const user_id = req.user.id;
 
   if (!machine_id || end_of_day_count === undefined || end_of_day_count < 0) {
@@ -27,10 +27,11 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ message: 'Máy không hợp lệ hoặc không phải máy gắp gấu.' });
     }
 
-    const start_of_day_count = machine.standard_quantity;
-    const gifts_won = Math.max(0, start_of_day_count - end_of_day_count);
+    // Lấy số gấu đầu ngày từ current_quantity của máy, nếu không có thì dùng start_of_day_count từ form
+    const actualStartOfDay = start_of_day_count !== undefined ? start_of_day_count : (machine.current_quantity || 0);
+    const gifts_won = Math.max(0, actualStartOfDay - end_of_day_count);
 
-    // Tính doanh thu theo công thức mới
+    // Tính doanh thu theo công thức mới: (số xu cuối ngày × giá xu) - (gấu đầu ngày - gấu cuối ngày) × giá gấu
     const coinValueNum = coin_value || 1000; // Default 1000 VND/xu
     const giftCostNum = gift_cost || 0; // Default 0 VND/gấu
     const revenue = (end_of_day_coins * coinValueNum) - (gifts_won * giftCostNum);
@@ -40,32 +41,26 @@ router.post('/', async (req, res) => {
       machine_id,
       user_id,
       audit_date: new Date(),
-      start_of_day_count,
+      start_of_day_count: actualStartOfDay,
       end_of_day_count,
       gifts_won,
       end_of_day_coins: end_of_day_coins || 0,
       coin_value: coinValueNum,
       gift_cost: giftCostNum,
       revenue: revenue,
-      is_refilled: true // Assume it's refilled upon audit
+      is_refilled: false // Không tự động refill
     }, { transaction: t });
 
-    // 2. Update the warehouse stock
-    const stock = await WarehouseStock.findOne({ where: { product_id: machine.product_id }, transaction: t });
-    if (!stock || stock.quantity < gifts_won) {
-      await t.rollback();
-      return res.status(400).json({ message: 'Không đủ quà trong kho để bù.' });
-    }
-
-    await stock.decrement('quantity', { by: gifts_won, transaction: t });
-
-    // 3. Update machine current quantity (refill to standard quantity)
+    // 2. Cập nhật current quantity của máy theo số cuối ngày thực tế
     await machine.update({ 
-      current_quantity: machine.standard_quantity 
+      current_quantity: end_of_day_count 
     }, { transaction: t });
     
     await t.commit();
-    res.status(201).json({ message: 'Báo cáo kiểm kê đã được ghi nhận.', audit });
+    res.status(201).json({ 
+      message: 'Báo cáo kiểm kê đã được ghi nhận.', 
+      audit
+    });
 
   } catch (error) {
     await t.rollback();

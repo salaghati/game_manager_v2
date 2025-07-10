@@ -24,7 +24,12 @@ module.exports = (sequelize, DataTypes) => {
     full_name: DataTypes.STRING,
     branch_id: DataTypes.INTEGER,
     role_id: DataTypes.INTEGER,
-    created_at: DataTypes.DATE
+    created_at: DataTypes.DATE,
+    debt_amount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
+    }
   }, {
     sequelize,
     modelName: 'User',

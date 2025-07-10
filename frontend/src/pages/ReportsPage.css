@@ -187,7 +187,7 @@
 .reports-table table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1000px;
+  min-width: 900px;
 }
 
 .reports-table th {
@@ -257,29 +257,7 @@
   color: #28a745;
 }
 
-.status {
-  text-align: center;
-}
 
-.status-badge {
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: bold;
-  text-transform: uppercase;
-}
-
-.status-badge.refilled {
-  background-color: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.status-badge.not-refilled {
-  background-color: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeaa7;
-}
 
 /* Responsive */
 @media (max-width: 768px) {
@@ -327,10 +305,5 @@
   
   .quantity {
     font-size: 14px;
-  }
-  
-  .status-badge {
-    font-size: 10px;
-    padding: 3px 8px;
   }
 } 

@@ -602,27 +602,43 @@ app.post('/api/advance-transactions', authenticateToken, async (req, res) => {
       return res.status(403).json({ message: 'Bạn không có quyền tạo tạm ứng cho nhân viên này' });
     }
 
-    const advanceTransaction = await AdvanceTransaction.create({
-      user_id: parseInt(user_id),
-      branch_id: user.branch_id,
-      transaction_type: 'ADVANCE',
-      amount: parseInt(amount),
-      description: description || '',
-      transaction_date: new Date(transaction_date),
-      remaining_amount: parseInt(amount),
-      created_by: req.user.id
-    });
+    // Tạo transaction với sequelize transaction để đảm bảo tính toàn vẹn
+    const t = await require('./models').sequelize.transaction();
 
-    // Trả về kèm thông tin user
-    const result = await AdvanceTransaction.findByPk(advanceTransaction.id, {
-      include: [
-        { model: User, as: 'user', attributes: ['id', 'username', 'full_name'] },
-        { model: Branch, as: 'branch', attributes: ['id', 'name'] },
-        { model: User, as: 'creator', attributes: ['id', 'username', 'full_name'] }
-      ]
-    });
+    try {
+      // Tạo advance transaction
+      const advanceTransaction = await AdvanceTransaction.create({
+        user_id: parseInt(user_id),
+        branch_id: user.branch_id,
+        transaction_type: 'ADVANCE',
+        amount: parseInt(amount),
+        description: description || '',
+        transaction_date: new Date(transaction_date),
+        remaining_amount: parseInt(amount),
+        created_by: req.user.id
+      }, { transaction: t });
 
-    res.json(result);
+      // Cập nhật số nợ của user: tạm ứng làm giảm nợ (có thể âm)
+      await user.update({
+        debt_amount: user.debt_amount - parseInt(amount)
+      }, { transaction: t });
+
+      await t.commit();
+
+      // Trả về kèm thông tin user và số nợ mới
+      const result = await AdvanceTransaction.findByPk(advanceTransaction.id, {
+        include: [
+          { model: User, as: 'user', attributes: ['id', 'username', 'full_name', 'debt_amount'] },
+          { model: Branch, as: 'branch', attributes: ['id', 'name'] },
+          { model: User, as: 'creator', attributes: ['id', 'username', 'full_name'] }
+        ]
+      });
+
+      res.json(result);
+    } catch (error) {
+      await t.rollback();
+      throw error;
+    }
   } catch (error) {
     console.error('Lỗi tạo tạm ứng:', error);
     res.status(500).json({ message: 'Có lỗi xảy ra khi tạo tạm ứng' });
@@ -630,7 +646,78 @@ app.post('/api/advance-transactions', authenticateToken, async (req, res) => {
 });
 
 /**
- * API: Tạo thanh toán cho tạm ứng
+ * API: Thanh toán trực tiếp vào nợ tổng của user
+ * POST /api/advance-transactions/direct-payment
+ * Body: { user_id, amount, description, transaction_date }
+ */
+app.post('/api/advance-transactions/direct-payment', authenticateToken, async (req, res) => {
+  try {
+    const { user_id, amount, description, transaction_date } = req.body;
+    
+    if (!user_id || !amount || !transaction_date) {
+      return res.status(400).json({ message: 'Thiếu thông tin bắt buộc' });
+    }
+
+    if (amount <= 0) {
+      return res.status(400).json({ message: 'Số tiền phải lớn hơn 0' });
+    }
+
+    // Kiểm tra user có tồn tại không
+    const user = await User.findByPk(user_id);
+    if (!user) {
+      return res.status(404).json({ message: 'Không tìm thấy nhân viên' });
+    }
+
+    // Kiểm tra quyền: admin có thể thanh toán cho bất kỳ ai, user thường chỉ có thể thanh toán cho người cùng chi nhánh
+    if (req.user.role_id !== 1 && user.branch_id !== req.user.branch_id) {
+      return res.status(403).json({ message: 'Bạn không có quyền thanh toán cho nhân viên này' });
+    }
+
+    // Tạo transaction với sequelize transaction để đảm bảo tính toàn vẹn
+    const t = await require('./models').sequelize.transaction();
+
+    try {
+      // Tạo thanh toán trực tiếp (không liên kết với advance transaction cụ thể)
+      const paymentTransaction = await AdvanceTransaction.create({
+        user_id: parseInt(user_id),
+        branch_id: user.branch_id,
+        transaction_type: 'PAYMENT',
+        amount: parseInt(amount),
+        description: description || '',
+        transaction_date: new Date(transaction_date),
+        advance_transaction_id: null, // Không liên kết với tạm ứng cụ thể
+        created_by: req.user.id
+      }, { transaction: t });
+
+      // Cập nhật số nợ của user: thanh toán làm tăng nợ (hoặc giảm nếu user đang có số dư âm)
+      await user.update({
+        debt_amount: user.debt_amount + parseInt(amount)
+      }, { transaction: t });
+
+      await t.commit();
+
+      // Trả về thông tin thanh toán và số nợ mới
+      const result = await AdvanceTransaction.findByPk(paymentTransaction.id, {
+        include: [
+          { model: User, as: 'user', attributes: ['id', 'username', 'full_name', 'debt_amount'] },
+          { model: Branch, as: 'branch', attributes: ['id', 'name'] },
+          { model: User, as: 'creator', attributes: ['id', 'username', 'full_name'] }
+        ]
+      });
+
+      res.json(result);
+    } catch (error) {
+      await t.rollback();
+      throw error;
+    }
+  } catch (error) {
+    console.error('Lỗi tạo thanh toán trực tiếp:', error);
+    res.status(500).json({ message: 'Có lỗi xảy ra khi tạo thanh toán' });
+  }
+});
+
+/**
+ * API: Tạo thanh toán cho tạm ứng (API cũ - vẫn giữ để tương thích)
  * POST /api/advance-transactions/:advance_id/payments
  * Body: { amount, description, transaction_date }
  */
@@ -665,35 +752,51 @@ app.post('/api/advance-transactions/:advance_id/payments', authenticateToken, as
     // Ghi chú: Cho phép chi vượt quá tạm ứng (remaining_amount có thể âm)
     // Logic: remaining_amount âm = chủ phải bù thêm cho quản lý
 
-    // Tạo thanh toán
-    const paymentTransaction = await AdvanceTransaction.create({
-      user_id: advanceTransaction.user_id,
-      branch_id: advanceTransaction.branch_id,
-      transaction_type: 'PAYMENT',
-      amount: parseInt(amount),
-      description: description || '',
-      transaction_date: new Date(transaction_date),
-      advance_transaction_id: parseInt(advance_id),
-      created_by: req.user.id
-    });
+    // Tạo transaction với sequelize transaction để đảm bảo tính toàn vẹn
+    const t = await require('./models').sequelize.transaction();
 
-    // Cập nhật remaining_amount của tạm ứng gốc
-    const newRemainingAmount = advanceTransaction.remaining_amount - parseInt(amount);
-    await advanceTransaction.update({
-      remaining_amount: newRemainingAmount
-    });
+    try {
+      // Tạo thanh toán
+      const paymentTransaction = await AdvanceTransaction.create({
+        user_id: advanceTransaction.user_id,
+        branch_id: advanceTransaction.branch_id,
+        transaction_type: 'PAYMENT',
+        amount: parseInt(amount),
+        description: description || '',
+        transaction_date: new Date(transaction_date),
+        advance_transaction_id: parseInt(advance_id),
+        created_by: req.user.id
+      }, { transaction: t });
 
-    // Trả về kèm thông tin
-    const result = await AdvanceTransaction.findByPk(paymentTransaction.id, {
-      include: [
-        { model: User, as: 'user', attributes: ['id', 'username', 'full_name'] },
-        { model: Branch, as: 'branch', attributes: ['id', 'name'] },
-        { model: User, as: 'creator', attributes: ['id', 'username', 'full_name'] },
-        { model: AdvanceTransaction, as: 'advance_transaction', attributes: ['id', 'amount', 'remaining_amount', 'transaction_date'] }
-      ]
-    });
+      // Cập nhật remaining_amount của tạm ứng gốc
+      const newRemainingAmount = advanceTransaction.remaining_amount - parseInt(amount);
+      await advanceTransaction.update({
+        remaining_amount: newRemainingAmount
+      }, { transaction: t });
 
-    res.json(result);
+      // Cập nhật số nợ của user: thanh toán làm tăng nợ
+      const userToUpdate = await User.findByPk(advanceTransaction.user_id, { transaction: t });
+      await userToUpdate.update({
+        debt_amount: userToUpdate.debt_amount + parseInt(amount)
+      }, { transaction: t });
+
+      await t.commit();
+
+      // Trả về kèm thông tin và số nợ mới
+      const result = await AdvanceTransaction.findByPk(paymentTransaction.id, {
+        include: [
+          { model: User, as: 'user', attributes: ['id', 'username', 'full_name', 'debt_amount'] },
+          { model: Branch, as: 'branch', attributes: ['id', 'name'] },
+          { model: User, as: 'creator', attributes: ['id', 'username', 'full_name'] },
+          { model: AdvanceTransaction, as: 'advance_transaction', attributes: ['id', 'amount', 'remaining_amount', 'transaction_date'] }
+        ]
+      });
+
+      res.json(result);
+    } catch (error) {
+      await t.rollback();
+      throw error;
+    }
   } catch (error) {
     console.error('Lỗi tạo thanh toán:', error);
     res.status(500).json({ message: 'Có lỗi xảy ra khi tạo thanh toán' });
@@ -757,7 +860,7 @@ app.get('/api/advance-transactions/summary', authenticateToken, async (req, res)
     let whereClause = {};
     
     if (user_id) {
-      whereClause.user_id = parseInt(user_id);
+      whereClause.id = parseInt(user_id);
     }
 
     // Quyền truy cập: admin xem tất cả, user thường chỉ xem trong chi nhánh mình
@@ -767,41 +870,34 @@ app.get('/api/advance-transactions/summary', authenticateToken, async (req, res)
       whereClause.branch_id = parseInt(branch_id);
     }
 
-    // Lấy tất cả tạm ứng (bao gồm cả đã thanh toán hết và vượt mức)
-    const advances = await AdvanceTransaction.findAll({
+    // Lấy tất cả users với debt_amount khác 0
+    const users = await User.findAll({
       where: {
         ...whereClause,
-        transaction_type: 'ADVANCE',
-        remaining_amount: { [Op.ne]: 0 } // Khác 0 (bao gồm âm và dương)
+        debt_amount: { [Op.ne]: 0 } // Khác 0 (bao gồm âm và dương)
       },
       include: [
-        { model: User, as: 'user', attributes: ['id', 'username', 'full_name'] },
         { model: Branch, as: 'branch', attributes: ['id', 'name'] }
       ],
-      order: [['transaction_date', 'ASC']]
+      attributes: ['id', 'username', 'full_name', 'debt_amount', 'branch_id'],
+      order: [['full_name', 'ASC']]
     });
 
-    // Tính tổng công nợ theo nhân viên (bao gồm cả âm - chủ bù thêm)
-    const summary = advances.reduce((acc, advance) => {
-      const key = `${advance.user_id}-${advance.user.username}`;
-      if (!acc[key]) {
-        acc[key] = {
-          user: advance.user,
-          branch: advance.branch,
-          total_balance: 0, // Đổi tên từ total_debt thành total_balance
-          advance_count: 0,
-          advances: []
-        };
-      }
-      acc[key].total_balance += advance.remaining_amount;
-      acc[key].advance_count += 1;
-      acc[key].advances.push({
-        id: advance.id,
-        amount: advance.amount,
-        remaining_amount: advance.remaining_amount,
-        transaction_date: advance.transaction_date,
-        description: advance.description
-      });
+    // Chuyển đổi thành format cũ để tương thích với frontend
+    const summary = users.reduce((acc, user) => {
+      const key = `${user.id}-${user.username}`;
+      acc[key] = {
+        user: {
+          id: user.id,
+          username: user.username,
+          full_name: user.full_name,
+          debt_amount: user.debt_amount
+        },
+        branch: user.branch,
+        total_balance: user.debt_amount, // Số nợ tổng của user
+        advance_count: 0, // Không tính số lần tạm ứng nữa
+        advances: [] // Có thể thêm lại nếu cần
+      };
       return acc;
     }, {});
 
@@ -857,8 +953,14 @@ app.delete('/api/advance-transactions/reset', authenticateToken, async (req, res
       truncate: true // Xóa toàn bộ và reset auto increment
     });
 
+    // Reset debt_amount của tất cả users về 0
+    await User.update(
+      { debt_amount: 0 },
+      { where: {} }
+    );
+
     res.json({ 
-      message: 'Reset dữ liệu tạm ứng/thanh toán thành công!',
+      message: 'Reset dữ liệu tạm ứng/thanh toán thành công! Đã reset số nợ của tất cả nhân viên về 0.',
       deletedCount: deletedCount
     });
   } catch (error) {

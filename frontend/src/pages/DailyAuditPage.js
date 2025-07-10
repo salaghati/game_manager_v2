@@ -10,6 +10,7 @@ const DailyAuditPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [auditData, setAuditData] = useState({
+    start_of_day_count: '',
     end_of_day_count: '',
     end_of_day_coins: '',
     coin_value: 1000,
@@ -38,6 +39,11 @@ const DailyAuditPage = () => {
           return;
         }
         setMachine(data);
+        // Cập nhật số gấu đầu ngày từ current_quantity của máy
+        setAuditData(prev => ({
+          ...prev,
+          start_of_day_count: data.current_quantity || 0
+        }));
         setError('');
       } else {
         setError('Không thể lấy thông tin máy');
@@ -59,13 +65,18 @@ const DailyAuditPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!auditData.end_of_day_count || auditData.end_of_day_count < 0) {
-      setError('Vui lòng nhập số lượng quà cuối ngày hợp lệ');
+    if (!auditData.start_of_day_count || auditData.start_of_day_count < 0) {
+      setError('Vui lòng nhập số lượng gấu đầu ngày hợp lệ');
       return;
     }
 
-    if (parseInt(auditData.end_of_day_count) > machine.standard_quantity) {
-      setError(`Số lượng cuối ngày không thể lớn hơn số lượng tiêu chuẩn (${machine.standard_quantity})`);
+    if (!auditData.end_of_day_count || auditData.end_of_day_count < 0) {
+      setError('Vui lòng nhập số lượng gấu cuối ngày hợp lệ');
+      return;
+    }
+
+    if (parseInt(auditData.end_of_day_count) > parseInt(auditData.start_of_day_count)) {
+      setError('Số lượng cuối ngày không thể lớn hơn số lượng đầu ngày');
       return;
     }
 
@@ -85,6 +96,7 @@ const DailyAuditPage = () => {
         },
         body: JSON.stringify({
           machine_id: parseInt(machineId),
+          start_of_day_count: parseInt(auditData.start_of_day_count),
           end_of_day_count: parseInt(auditData.end_of_day_count),
           end_of_day_coins: parseInt(auditData.end_of_day_coins),
           coin_value: parseFloat(auditData.coin_value),
@@ -94,7 +106,7 @@ const DailyAuditPage = () => {
 
       if (response.ok) {
         const result = await response.json();
-        alert('Kiểm kê thành công! Kho đã được cập nhật.');
+        alert('Kiểm kê thành công! Số gấu hiện tại của máy đã được cập nhật.');
         navigate('/');
       } else {
         const errorData = await response.json();
@@ -108,8 +120,8 @@ const DailyAuditPage = () => {
   };
 
   const calculateGiftsWon = () => {
-    if (!machine || !auditData.end_of_day_count) return 0;
-    return Math.max(0, machine.standard_quantity - parseInt(auditData.end_of_day_count));
+    if (!auditData.start_of_day_count || !auditData.end_of_day_count) return 0;
+    return Math.max(0, parseInt(auditData.start_of_day_count) - parseInt(auditData.end_of_day_count));
   };
 
   const calculateRevenue = () => {
@@ -189,11 +201,13 @@ const DailyAuditPage = () => {
                 <label>Số lượng đầu ngày</label>
                 <input
                   type="number"
-                  value={machine?.standard_quantity || 0}
-                  disabled
-                  className="readonly-input"
+                  name="start_of_day_count"
+                  value={auditData.start_of_day_count}
+                  onChange={handleInputChange}
+                  min="0"
+                  required
                 />
-                <small>Số lượng quà tiêu chuẩn của máy</small>
+                <small>Số lượng gấu có trong máy vào đầu ngày (có thể chỉnh sửa nếu cần)</small>
               </div>
               
               <div className="form-group">
@@ -204,10 +218,10 @@ const DailyAuditPage = () => {
                   value={auditData.end_of_day_count}
                   onChange={handleInputChange}
                   min="0"
-                  max={machine?.standard_quantity || 100}
+                  max={auditData.start_of_day_count || 100}
                   required
                 />
-                <small>Số lượng quà còn lại trong máy</small>
+                <small>Số lượng gấu còn lại trong máy cuối ngày</small>
               </div>
             </div>
 
@@ -256,14 +270,14 @@ const DailyAuditPage = () => {
               </div>
             </div>
 
-            {auditData.end_of_day_count && auditData.end_of_day_coins && (
+            {auditData.start_of_day_count && auditData.end_of_day_count && (
               <div className="calculation-section">
                 <h4>Kết Quả Tính Toán</h4>
                 <div className="calculation-grid">
                   <div className="calc-item">
-                    <label>Số quà đã thắng:</label>
+                    <label>Số gấu đã thắng:</label>
                     <span className="calc-value">
-                      {calculateGiftsWon()} quà
+                      {calculateGiftsWon()} gấu
                     </span>
                   </div>
                   <div className="calc-item">
@@ -306,7 +320,7 @@ const DailyAuditPage = () => {
             </button>
             <button 
               type="submit" 
-              disabled={loading || !auditData.end_of_day_count || !auditData.end_of_day_coins}
+              disabled={loading || !auditData.start_of_day_count || !auditData.end_of_day_count || !auditData.end_of_day_coins}
               className="btn btn-primary"
             >
               {loading ? 'Đang xử lý...' : 'Hoàn Tất Kiểm Kê'}
@@ -317,10 +331,10 @@ const DailyAuditPage = () => {
         <div className="audit-info">
           <h3>Lưu Ý</h3>
           <ul>
-            <li>Số lượng cuối ngày không được lớn hơn số lượng tiêu chuẩn</li>
-            <li>Hệ thống sẽ tự động tính số quà đã thắng = Số lượng đầu ngày - Số lượng cuối ngày</li>
-            <li>Sau khi kiểm kê, kho sẽ được cập nhật để bù số quà đã thắng</li>
-            <li>Máy sẽ được nạp đầy về số lượng tiêu chuẩn</li>
+            <li>Số lượng cuối ngày không được lớn hơn số lượng đầu ngày</li>
+            <li>Hệ thống sẽ tự động tính số gấu đã thắng = Số lượng đầu ngày - Số lượng cuối ngày</li>
+            <li>Sau kiểm kê, số gấu hiện tại của máy sẽ được cập nhật theo số lượng cuối ngày</li>
+            <li>Để refill máy, vui lòng sử dụng chức năng "Nhập gấu vào máy" ở trang Quản lý kho</li>
           </ul>
         </div>
       </div>

@@ -15,6 +15,7 @@ const WarehouseManagementPage = () => {
   });
   const [refillData, setRefillData] = useState({
     machine_id: '',
+    product_id: '',
     quantity: ''
   });
 
@@ -133,8 +134,8 @@ const WarehouseManagementPage = () => {
 
   const handleRefillSubmit = async (e) => {
     e.preventDefault();
-    if (!refillData.machine_id || !refillData.quantity || refillData.quantity <= 0) {
-      setError('Vui lòng chọn máy và nhập số lượng hợp lệ');
+    if (!refillData.machine_id || !refillData.product_id || !refillData.quantity || refillData.quantity <= 0) {
+      setError('Vui lòng chọn máy, sản phẩm và nhập số lượng hợp lệ');
       return;
     }
 
@@ -149,6 +150,7 @@ const WarehouseManagementPage = () => {
         },
         body: JSON.stringify({
           machine_id: parseInt(refillData.machine_id),
+          product_id: parseInt(refillData.product_id),
           quantity: parseInt(refillData.quantity)
         })
       });
@@ -158,7 +160,7 @@ const WarehouseManagementPage = () => {
         alert(result.message);
         fetchStocks(); // Refresh kho
         fetchMachines(); // Refresh máy
-        setRefillData({ machine_id: '', quantity: '' });
+        setRefillData({ machine_id: '', product_id: '', quantity: '' });
         setShowRefillForm(false);
         setError('');
       } else {
@@ -173,7 +175,7 @@ const WarehouseManagementPage = () => {
   };
 
   const resetRefillForm = () => {
-    setRefillData({ machine_id: '', quantity: '' });
+    setRefillData({ machine_id: '', product_id: '', quantity: '' });
     setShowRefillForm(false);
     setError('');
   };
@@ -340,6 +342,22 @@ const WarehouseManagementPage = () => {
                   {machines.map(machine => (
                     <option key={machine.id} value={machine.id}>
                       {machine.name} (Hiện tại: {machine.current_quantity || 0}/{machine.standard_quantity})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Sản Phẩm *</label>
+                <select
+                  name="product_id"
+                  value={refillData.product_id}
+                  onChange={handleRefillChange}
+                  required
+                >
+                  <option value="">Chọn sản phẩm</option>
+                  {stocks.map(stock => (
+                    <option key={stock.product_id} value={stock.product_id}>
+                      {stock.product?.name} (Hiện tại: {stock.quantity})
                     </option>
                   ))}
                 </select>

@@ -181,7 +181,6 @@ const ReportsPage = () => {
                   <th>Số Lượng Đầu Ngày</th>
                   <th>Số Lượng Cuối Ngày</th>
                   <th>Quà Đã Thắng</th>
-                  <th>Đã Nạp Lại</th>
                 </tr>
               </thead>
               <tbody>
@@ -207,11 +206,6 @@ const ReportsPage = () => {
                     </td>
                     <td className="quantity gifts-won">
                       {report.gifts_won}
-                    </td>
-                    <td className="status">
-                      <span className={`status-badge ${report.is_refilled ? 'refilled' : 'not-refilled'}`}>
-                        {report.is_refilled ? 'Đã nạp' : 'Chưa nạp'}
-                      </span>
                     </td>
                   </tr>
                 ))}

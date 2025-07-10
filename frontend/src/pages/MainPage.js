@@ -780,7 +780,7 @@ function MachineManagement({ token }) {
                   {machine.type === 'prize_dispensing' ? (
                     <div>
                       <div><strong>Sản phẩm:</strong> {machine.product_name || 'N/A'}</div>
-                      <div><strong>Số lượng tiêu chuẩn:</strong> {machine.standard_quantity || 'N/A'}</div>
+                      <div><strong>Số gấu hiện tại:</strong> {machine.current_quantity || 0}</div>
                     </div>
                   ) : (
                     <div><strong>Điểm hiện tại:</strong> {machine.current_points || 0}</div>

@@ -21,7 +21,7 @@ const AdvancePaymentPage = () => {
   });
 
   const [paymentForm, setPaymentForm] = useState({
-    advance_id: '',
+    user_id: '',
     amount: '',
     description: '',
     transaction_date: new Date().toISOString().split('T')[0]
@@ -152,18 +152,19 @@ const AdvancePaymentPage = () => {
     }
   };
 
-  // Create payment
+  // Create payment (thanh toán trực tiếp vào nợ tổng)
   const createPayment = async () => {
     try {
-      if (!paymentForm.advance_id || !paymentForm.amount || !paymentForm.transaction_date) {
+      if (!paymentForm.user_id || !paymentForm.amount || !paymentForm.transaction_date) {
         setError('Vui lòng điền đầy đủ thông tin');
         return;
       }
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/advance-transactions/${paymentForm.advance_id}/payments`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/advance-transactions/direct-payment`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
+          user_id: parseInt(paymentForm.user_id),
           amount: parseInt(paymentForm.amount),
           description: paymentForm.description,
           transaction_date: paymentForm.transaction_date
@@ -173,7 +174,7 @@ const AdvancePaymentPage = () => {
       const data = await response.json();
       if (response.ok) {
         setPaymentForm({
-          advance_id: '',
+          user_id: '',
           amount: '',
           description: '',
           transaction_date: new Date().toISOString().split('T')[0]
@@ -181,7 +182,7 @@ const AdvancePaymentPage = () => {
         fetchTransactions();
         fetchSummary();
         setError('');
-        alert('Tạo thanh toán thành công!');
+        alert('Thanh toán thành công! Số nợ đã được cập nhật.');
       } else {
         setError(data.message || 'Lỗi khi tạo thanh toán');
       }
@@ -258,12 +259,10 @@ const AdvancePaymentPage = () => {
     return new Date(dateString).toLocaleDateString('vi-VN');
   };
 
-  // Get available advances for payment
-  const getAvailableAdvances = () => {
-    return transactions.filter(t => 
-      t.transaction_type === 'ADVANCE' && 
-      t.remaining_amount > 0 &&
-      (!selectedUser || t.user_id === parseInt(selectedUser))
+  // Get users with debt for quick selection
+  const getUsersWithDebt = () => {
+    return users.filter(user => 
+      !selectedUser || user.id === parseInt(selectedUser)
     );
   };
 
@@ -306,7 +305,7 @@ const AdvancePaymentPage = () => {
           className={activeTab === 'payment' ? 'active' : ''}
           onClick={() => setActiveTab('payment')}
         >
-          Thanh toán
+          Thanh toán nợ
         </button>
       </div>
 
@@ -340,22 +339,19 @@ const AdvancePaymentPage = () => {
                         <h3>{item.user.full_name}</h3>
                         <div className={`debt-amount ${item.total_balance < 0 ? 'owner-owes' : ''}`}>
                           {item.total_balance >= 0 
-                            ? `Tổng nợ: ${formatCurrency(item.total_balance)}`
-                            : `Chủ bù thêm: ${formatCurrency(Math.abs(item.total_balance))}`
+                            ? `Số nợ hiện tại: ${formatCurrency(item.total_balance)}`
+                            : `Số dư thừa: ${formatCurrency(Math.abs(item.total_balance))}`
                           }
                         </div>
                       </div>
                       <div className="summary-details">
+                        <p>Tài khoản: {item.user.username}</p>
                         <p>Chi nhánh: {item.branch.name}</p>
-                        <p>Số lần tạm ứng: {item.advance_count}</p>
-                        <div className="advance-details">
-                          {item.advances.map(advance => (
-                            <div key={advance.id} className="advance-item">
-                              <span>Ngày {formatDate(advance.transaction_date)}</span>
-                              <span>Tạm ứng: {formatCurrency(advance.amount)}</span>
-                              <span>Còn lại: {formatCurrency(advance.remaining_amount)}</span>
-                            </div>
-                          ))}
+                        <div className="debt-explanation">
+                          <p><small>
+                            • Số dương = Nhân viên đang nợ<br/>
+                            • Số âm = Nhân viên đã trả thừa tiền
+                          </small></p>
                         </div>
                       </div>
                     </div>
@@ -508,18 +504,17 @@ const AdvancePaymentPage = () => {
         {activeTab === 'payment' && (
           <div className="payment-tab">
             <div className="form-container">
-              <h3>Thanh toán tạm ứng</h3>
+              <h3>Thanh toán vào nợ tổng</h3>
               <div className="form-group">
-                <label>Chọn tạm ứng cần thanh toán:</label>
+                <label>Chọn nhân viên:</label>
                 <select 
-                  value={paymentForm.advance_id} 
-                  onChange={(e) => setPaymentForm({...paymentForm, advance_id: e.target.value})}
+                  value={paymentForm.user_id} 
+                  onChange={(e) => setPaymentForm({...paymentForm, user_id: e.target.value})}
                 >
-                  <option value="">Chọn tạm ứng</option>
-                  {getAvailableAdvances().map(advance => (
-                    <option key={advance.id} value={advance.id}>
-                      {advance.user.full_name} - {formatDate(advance.transaction_date)} - 
-                      Còn lại: {formatCurrency(advance.remaining_amount)}
+                  <option value="">Chọn nhân viên</option>
+                  {users.map(user => (
+                    <option key={user.id} value={user.id}>
+                      {user.full_name} ({user.username}) - {user.branch?.name}
                     </option>
                   ))}
                 </select>
@@ -553,6 +548,15 @@ const AdvancePaymentPage = () => {
               <button onClick={createPayment} className="btn-primary">
                 Thanh toán
               </button>
+              
+              <div className="payment-note">
+                <h4>📝 Lưu ý về thanh toán:</h4>
+                <ul>
+                  <li>Thanh toán sẽ được cộng trực tiếp vào số nợ tổng của nhân viên</li>
+                  <li>Không cần chọn khoản tạm ứng cụ thể</li>
+                  <li>Số nợ dương = nhân viên đang nợ, số âm = nhân viên đã trả thừa</li>
+                </ul>
+              </div>
             </div>
           </div>
         )}

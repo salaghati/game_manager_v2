@@ -48,11 +48,11 @@ router.post('/stock-in', async (req, res) => {
 
 // POST /api/warehouse/refill-machine - Nhập gấu vào máy từ kho
 router.post('/refill-machine', async (req, res) => {
-  const { machine_id, quantity } = req.body;
+  const { machine_id, product_id, quantity } = req.body;
   const user_id = req.user.id;
 
-  if (!machine_id || !quantity || quantity <= 0) {
-    return res.status(400).json({ message: 'Thiếu thông tin hoặc dữ liệu không hợp lệ.' });
+  if (!machine_id || !product_id || !quantity || quantity <= 0) {
+    return res.status(400).json({ message: 'Thiếu thông tin máy, sản phẩm hoặc số lượng không hợp lệ.' });
   }
 
   const t = await sequelize.transaction();
@@ -64,23 +64,33 @@ router.post('/refill-machine', async (req, res) => {
       return res.status(404).json({ message: 'Máy không hợp lệ hoặc không phải máy gắp gấu.' });
     }
 
-    // Kiểm tra kho có đủ hàng không
+    // Kiểm tra kho có sản phẩm và đủ hàng không
     const stock = await WarehouseStock.findOne({ 
-      where: { product_id: machine.product_id }, 
+      where: { product_id: product_id }, 
       transaction: t 
     });
     
-    if (!stock || stock.quantity < quantity) {
+    if (!stock) {
       await t.rollback();
       return res.status(400).json({ 
-        message: `Không đủ quà trong kho. Kho hiện có: ${stock ? stock.quantity : 0}` 
+        message: `Không tìm thấy sản phẩm ID ${product_id} trong kho.` 
+      });
+    }
+
+    const stockQuantity = parseInt(stock.quantity);
+    const requestQuantity = parseInt(quantity);
+
+    if (stockQuantity < requestQuantity) {
+      await t.rollback();
+      return res.status(400).json({ 
+        message: `Không đủ sản phẩm trong kho. Kho hiện có: ${stockQuantity}, yêu cầu: ${requestQuantity}` 
       });
     }
 
     // Kiểm tra máy có thể chứa thêm không
     const currentMachineCount = machine.current_quantity || 0;
-    const newMachineCount = currentMachineCount + quantity;
-    
+    const newMachineCount = currentMachineCount + requestQuantity;
+
     if (newMachineCount > machine.standard_quantity) {
       await t.rollback();
       return res.status(400).json({ 
@@ -89,16 +99,18 @@ router.post('/refill-machine', async (req, res) => {
     }
 
     // Trừ kho và cộng vào máy
-    await stock.decrement('quantity', { by: quantity, transaction: t });
+    await stock.decrement('quantity', { by: requestQuantity, transaction: t });
     await machine.update({ 
-      current_quantity: newMachineCount 
+      current_quantity: newMachineCount,
+      product_id: product_id // Cập nhật sản phẩm hiện tại của máy
     }, { transaction: t });
 
     await t.commit();
+    
     res.json({ 
-      message: `Đã nhập ${quantity} quà vào máy ${machine.name}`,
+      message: `Đã nhập ${requestQuantity} sản phẩm vào máy ${machine.name}`,
       machine_current_quantity: newMachineCount,
-      stock_remaining: stock.quantity - quantity
+      stock_remaining: stockQuantity - requestQuantity
     });
 
   } catch (error) {
