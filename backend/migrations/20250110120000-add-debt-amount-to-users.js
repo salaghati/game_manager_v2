@@ -7,7 +7,7 @@ module.exports = {
       type: Sequelize.INTEGER,
       allowNull: false,
       defaultValue: 0,
-      comment: 'Số nợ hiện tại của user (VND). Số dương = nợ, số âm = thừa tiền'
+      comment: 'Số nợ hiện tại của user (VND). Số dương = đang nợ, số âm = đã trả thừa'
     });
   },
 

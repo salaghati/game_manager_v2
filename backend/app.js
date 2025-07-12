@@ -3,7 +3,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { User, Machine, PointTransaction, Branch, AdvanceTransaction } = require('./models');
+const { User, Machine, PointTransaction, Branch, AdvanceTransaction, TransactionEditLog } = require('./models');
 const { Op } = require('sequelize');
 
 // Import new route files
@@ -270,19 +270,65 @@ app.put('/api/transactions/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ message: 'Bạn không có quyền sửa transaction này' });
     }
 
+    // Tính toán các thông số liên quan
+    const parsedPointsIn = parseInt(points_in) || 0;
+    const parsedPointsOut = parseInt(points_out) || 0;
+    const parsedPreviousBalance = parseInt(previous_balance) || 0;
+    const parsedCurrentBalance = parseInt(current_balance) || 0;
+    
     // Tính toán daily_point từ current_balance và previous_balance
-    const newDailyPoint = parseInt(current_balance) - parseInt(previous_balance);
+    const newDailyPoint = parsedCurrentBalance - parsedPreviousBalance;
+    
+    // Tính toán final_amount dựa trên daily_point và rate của máy
+    const machineRate = transaction.rate || machine.rate || 2; // Sử dụng rate đã lưu trong transaction, fallback về rate hiện tại của máy
+    const newFinalAmount = Math.round((newDailyPoint / machineRate) * 1000);
+
+    // Lưu giá trị cũ trước khi update
+    const oldValues = {
+      points_in: transaction.points_in,
+      points_out: transaction.points_out,
+      previous_balance: transaction.previous_balance,
+      current_balance: transaction.current_balance
+    };
 
     // Cập nhật transaction
     await transaction.update({
-      points_in: parseInt(points_in),
-      points_out: parseInt(points_out),
-      previous_balance: parseInt(previous_balance),
-      current_balance: parseInt(current_balance),
+      points_in: parsedPointsIn,
+      points_out: parsedPointsOut,
+      previous_balance: parsedPreviousBalance,
+      current_balance: parsedCurrentBalance,
       daily_point: newDailyPoint,
-      final_amount: parseInt(final_amount),
+      final_amount: newFinalAmount,
       updatedAt: new Date()
     });
+
+    // Lưu log chỉnh sửa nếu có thay đổi
+    const fields = [
+      { key: 'points_in', old: oldValues.points_in, new: parsedPointsIn },
+      { key: 'points_out', old: oldValues.points_out, new: parsedPointsOut },
+      { key: 'previous_balance', old: oldValues.previous_balance, new: parsedPreviousBalance },
+      { key: 'current_balance', old: oldValues.current_balance, new: parsedCurrentBalance }
+    ];
+    
+    const now = new Date();
+    console.log('=== DEBUG: Checking fields for log ===');
+    for (const f of fields) {
+      console.log(`Field: ${f.key}, Old: ${f.old}, New: ${f.new}, Changed: ${String(f.old) !== String(f.new)}`);
+      if (String(f.old) !== String(f.new)) {
+        console.log(`Creating log for field: ${f.key}`);
+        await TransactionEditLog.create({
+          transaction_id: transaction.id,
+          editor_id: req.user.id,
+          editor_name: req.user.full_name || req.user.username || '',
+          field: f.key,
+          old_value: String(f.old),
+          new_value: String(f.new),
+          edited_at: now
+        });
+        console.log(`Log created for field: ${f.key}`);
+      }
+    }
+    console.log('=== END DEBUG ===');
 
     // Trả về transaction đã cập nhật
     const updatedTransaction = await PointTransaction.findByPk(id, {
@@ -618,9 +664,9 @@ app.post('/api/advance-transactions', authenticateToken, async (req, res) => {
         created_by: req.user.id
       }, { transaction: t });
 
-      // Cập nhật số nợ của user: tạm ứng làm giảm nợ (có thể âm)
+      // Cập nhật số nợ của user: tạm ứng làm tăng nợ
       await user.update({
-        debt_amount: user.debt_amount - parseInt(amount)
+        debt_amount: user.debt_amount + parseInt(amount)
       }, { transaction: t });
 
       await t.commit();
@@ -689,9 +735,9 @@ app.post('/api/advance-transactions/direct-payment', authenticateToken, async (r
         created_by: req.user.id
       }, { transaction: t });
 
-      // Cập nhật số nợ của user: thanh toán làm tăng nợ (hoặc giảm nếu user đang có số dư âm)
+      // Cập nhật số nợ của user: thanh toán làm giảm nợ (có thể âm nếu trả thừa)
       await user.update({
-        debt_amount: user.debt_amount + parseInt(amount)
+        debt_amount: user.debt_amount - parseInt(amount)
       }, { transaction: t });
 
       await t.commit();
@@ -774,10 +820,10 @@ app.post('/api/advance-transactions/:advance_id/payments', authenticateToken, as
         remaining_amount: newRemainingAmount
       }, { transaction: t });
 
-      // Cập nhật số nợ của user: thanh toán làm tăng nợ
+      // Cập nhật số nợ của user: thanh toán làm giảm nợ
       const userToUpdate = await User.findByPk(advanceTransaction.user_id, { transaction: t });
       await userToUpdate.update({
-        debt_amount: userToUpdate.debt_amount + parseInt(amount)
+        debt_amount: userToUpdate.debt_amount - parseInt(amount)
       }, { transaction: t });
 
       await t.commit();
@@ -966,6 +1012,30 @@ app.delete('/api/advance-transactions/reset', authenticateToken, async (req, res
   } catch (error) {
     console.error('Lỗi reset dữ liệu tạm ứng:', error);
     res.status(500).json({ message: 'Có lỗi xảy ra khi reset dữ liệu' });
+  }
+});
+
+/**
+ * API: Lấy lịch sử chỉnh sửa transaction
+ * GET /api/transaction-edit-logs?transaction_id=...
+ */
+app.get('/api/transaction-edit-logs', authenticateToken, async (req, res) => {
+  try {
+    const { transaction_id } = req.query;
+    if (!transaction_id) {
+      return res.status(400).json({ message: 'Thiếu transaction_id' });
+    }
+    // Chỉ admin hoặc quản lý mới được xem
+    if (req.user.role_id !== 1) {
+      return res.status(403).json({ message: 'Chỉ admin mới được xem lịch sử chỉnh sửa' });
+    }
+    const logs = await TransactionEditLog.findAll({
+      where: { transaction_id },
+      order: [['edited_at', 'DESC']]
+    });
+    res.json(logs);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
   }
 });
 
