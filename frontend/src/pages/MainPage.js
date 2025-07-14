@@ -1452,8 +1452,8 @@ function DataEntry({ token }) {
           position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
           background: 'rgba(0,0,0,0.3)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
-          <div style={{ background: 'white', borderRadius: 8, padding: 24, minWidth: 400, maxWidth: 600, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 2px 16px #0002' }}>
-            <h3 style={{ marginTop: 0 }}>Lịch sử chỉnh sửa</h3>
+          <div style={{ background: 'white', borderRadius: 8, padding: 24, minWidth: 700, maxWidth: 800, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 2px 16px #0002' }}>
+            <h3 style={{ marginTop: 0, marginBottom: 20, fontSize: 22, borderBottom: '2px solid #2196F3', paddingBottom: 10, color: '#1976d2' }}>Lịch sử chỉnh sửa</h3>
             {logLoading ? (
               <div>Đang tải...</div>
             ) : logError ? (
@@ -1464,21 +1464,27 @@ function DataEntry({ token }) {
               <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8 }}>
                 <thead>
                   <tr style={{ background: '#f0f0f0' }}>
-                    <th>Thời gian</th>
-                    <th>Người sửa</th>
-                    <th>Trường</th>
-                    <th>Giá trị cũ</th>
-                    <th>Giá trị mới</th>
+                    <th style={{ padding: '12px 15px', minWidth: '180px', textAlign: 'left' }}>Thời gian</th>
+                    <th style={{ padding: '12px 15px', minWidth: '120px', textAlign: 'left' }}>Người sửa</th>
+                    <th style={{ padding: '12px 15px', minWidth: '150px', textAlign: 'left' }}>Trường</th>
+                    <th style={{ padding: '12px 15px', minWidth: '100px', textAlign: 'center' }}>Giá trị cũ</th>
+                    <th style={{ padding: '12px 15px', minWidth: '100px', textAlign: 'center' }}>Giá trị mới</th>
                   </tr>
                 </thead>
                 <tbody>
                   {editLogs.map((log, idx) => (
-                    <tr key={idx}>
-                      <td>{new Date(log.edited_at).toLocaleString('vi-VN')}</td>
-                      <td>{log.editor_name}</td>
-                      <td>{log.field}</td>
-                      <td style={{ color: '#888' }}>{log.old_value}</td>
-                      <td style={{ color: '#388e3c', fontWeight: 'bold' }}>{log.new_value}</td>
+                    <tr key={idx} style={{ borderBottom: '1px solid #e0e0e0' }}>
+                      <td style={{ padding: '12px 15px', textAlign: 'left' }}>{new Date(log.edited_at).toLocaleString('vi-VN')}</td>
+                      <td style={{ padding: '12px 15px', textAlign: 'left' }}>{log.editor_name}</td>
+                      <td style={{ padding: '12px 15px', textAlign: 'left', fontWeight: 'bold' }}>
+                        {log.field === 'points_in' ? 'Point In' : 
+                         log.field === 'points_out' ? 'Point Out' : 
+                         log.field === 'previous_balance' ? 'Balance trước' : 
+                         log.field === 'current_balance' ? 'Balance hiện tại' : 
+                         log.field}
+                      </td>
+                      <td style={{ padding: '12px 15px', color: '#888', textAlign: 'center', fontWeight: '500' }}>{log.old_value}</td>
+                      <td style={{ padding: '12px 15px', color: '#388e3c', fontWeight: 'bold', textAlign: 'center', backgroundColor: '#f1f8e9' }}>{log.new_value}</td>
                     </tr>
                   ))}
                 </tbody>
