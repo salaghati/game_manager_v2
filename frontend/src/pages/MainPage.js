@@ -1409,13 +1409,14 @@ function DataEntry({ token }) {
                           <button 
                             onClick={() => handleStartEdit(h)}
                             style={{
-                              padding: '2px 8px',
+                              padding: '3px 8px',
                               backgroundColor: '#2196F3',
                               color: 'white',
                               border: 'none',
                               borderRadius: 3,
                               cursor: 'pointer',
-                              fontSize: 11
+                              fontSize: 11,
+                              minWidth: '42px'
                             }}
                           >
                             Edit
@@ -1435,8 +1436,7 @@ function DataEntry({ token }) {
                           borderRadius: 3,
                           cursor: 'pointer',
                           fontSize: 11,
-                          fontWeight: '500',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                          minWidth: '42px'
                         }}
                       >
                         Lịch sử
