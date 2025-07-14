@@ -1428,16 +1428,21 @@ function DataEntry({ token }) {
                         onClick={() => handleShowLog(h.id)}
                         style={{
                           marginLeft: 6,
-                          padding: '2px 8px',
-                          backgroundColor: '#6c757d',
+                          padding: '6px 10px',
+                          backgroundColor: '#5c6bc0',
                           color: 'white',
                           border: 'none',
-                          borderRadius: 3,
+                          borderRadius: 4,
                           cursor: 'pointer',
-                          fontSize: 11
+                          fontSize: 12,
+                          fontWeight: '500',
+                          display: 'flex',
+                          alignItems: 'center',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                          transition: 'all 0.2s ease'
                         }}
                       >
-                        Lịch sử chỉnh sửa
+                        <span style={{ marginRight: 5 }}>📋</span> Lịch sử chỉnh sửa
                       </button>
                     </td>
                   </tr>
