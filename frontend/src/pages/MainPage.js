@@ -839,11 +839,15 @@ function DataEntry({ token }) {
     points_in: '',
     points_out: '',
     previous_balance: '',
-    current_balance: '',
-    final_amount: ''
+    current_balance: ''
   });
   const [demoMode, setDemoMode] = useState(true); // True = cho phép sửa ngày đã nhập (demo), False = block ngày đã nhập
   const [filterDate, setFilterDate] = useState(''); // Filter ngày cho bảng lịch sử
+  const [showLogModal, setShowLogModal] = useState(false);
+  const [logTransactionId, setLogTransactionId] = useState(null);
+  const [editLogs, setEditLogs] = useState([]);
+  const [logLoading, setLogLoading] = useState(false);
+  const [logError, setLogError] = useState('');
 
   // Lấy danh sách máy khi load
   useEffect(() => {
@@ -1028,8 +1032,7 @@ function DataEntry({ token }) {
       points_in: transaction.points_in,
       points_out: transaction.points_out,
       previous_balance: transaction.previous_balance,
-      current_balance: transaction.current_balance,
-      final_amount: transaction.final_amount
+      current_balance: transaction.current_balance
     });
   };
 
@@ -1040,8 +1043,7 @@ function DataEntry({ token }) {
       points_in: '',
       points_out: '',
       previous_balance: '',
-      current_balance: '',
-      final_amount: ''
+      current_balance: ''
     });
   };
 
@@ -1050,7 +1052,15 @@ function DataEntry({ token }) {
     try {
       setLoading(true);
       
-      const response = await axios.put(`${API_CONFIG.BASE_URL}/api/transactions/${editingTransaction}`, editForm, {
+      // Chỉ gửi các trường cần thiết, không gửi final_amount vì backend sẽ tự tính
+      const requestData = {
+        points_in: editForm.points_in,
+        points_out: editForm.points_out,
+        previous_balance: editForm.previous_balance,
+        current_balance: editForm.current_balance
+      };
+      
+      const response = await axios.put(`${API_CONFIG.BASE_URL}/api/transactions/${editingTransaction}`, requestData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -1079,6 +1089,51 @@ function DataEntry({ token }) {
   }, [history, filterDate]);
   
   const selectedMachine = machines && machines.length > 0 ? machines.find(m => m.id === parseInt(selectedMachineId)) : null;
+
+  // Tự động cập nhật current_balance, daily_point, final_amount khi chỉnh Point In/Out ở chế độ edit
+  useEffect(() => {
+    if (editingTransaction !== null) {
+      const pointsIn = parseInt(editForm.points_in) || 0;
+      const pointsOut = parseInt(editForm.points_out) || 0;
+      const prevBalance = parseInt(editForm.previous_balance) || 0;
+      // Tính lại balance hôm nay
+      const newCurrentBalance = pointsIn - pointsOut;
+      // Nếu current_balance khác với giá trị mới thì cập nhật
+      if (editForm.current_balance !== newCurrentBalance) {
+        setEditForm((prev) => ({
+          ...prev,
+          current_balance: newCurrentBalance
+        }));
+      }
+    }
+    // eslint-disable-next-line
+  }, [editForm.points_in, editForm.points_out, editingTransaction]);
+
+  const handleShowLog = async (transactionId) => {
+    setShowLogModal(true);
+    setLogTransactionId(transactionId);
+    setLogLoading(true);
+    setLogError('');
+    try {
+      const res = await axios.get(`${API_CONFIG.BASE_URL}/api/transaction-edit-logs`, {
+        params: { transaction_id: transactionId },
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setEditLogs(res.data || []);
+    } catch (err) {
+      setLogError('Không thể tải lịch sử chỉnh sửa');
+      setEditLogs([]);
+    } finally {
+      setLogLoading(false);
+    }
+  };
+
+  const handleCloseLog = () => {
+    setShowLogModal(false);
+    setLogTransactionId(null);
+    setEditLogs([]);
+    setLogError('');
+  };
 
   return (
     <div style={{ maxWidth: 900, margin: '40px auto', padding: 24, fontFamily: 'sans-serif' }}>
@@ -1295,7 +1350,7 @@ function DataEntry({ token }) {
                     </td>
                     <td>
                       {editingTransaction === h.id ? (
-                        <strong>{editForm.current_balance - editForm.previous_balance}</strong>
+                        <strong>{(parseInt(editForm.current_balance) || 0) - (parseInt(editForm.previous_balance) || 0)}</strong>
                       ) : (
                         h.daily_point
                       )}
@@ -1305,13 +1360,13 @@ function DataEntry({ token }) {
                     </td>
                     <td>
                       {editingTransaction === h.id ? (
-                        <input 
-                          type="number" 
-                          value={editForm.final_amount}
-                          onChange={e => setEditForm({...editForm, final_amount: parseInt(e.target.value) || 0})}
-                          style={{ width: '100px', padding: 2 }}
-                          min="0"
-                        />
+                        <strong style={{ color: '#28a745' }}>
+                          {(() => {
+                            const dailyPoint = (parseInt(editForm.current_balance) || 0) - (parseInt(editForm.previous_balance) || 0);
+                            const rate = h.rate || 2;
+                            return Math.round((dailyPoint / rate) * 1000).toLocaleString('vi-VN');
+                          })()}
+                        </strong>
                       ) : (
                         h.final_amount?.toLocaleString('vi-VN')
                       )}
@@ -1369,6 +1424,21 @@ function DataEntry({ token }) {
                       ) : (
                         <span style={{ color: '#999', fontSize: 11 }}>Chỉ sửa được ngày mới nhất</span>
                       )}
+                      <button
+                        onClick={() => handleShowLog(h.id)}
+                        style={{
+                          marginLeft: 6,
+                          padding: '2px 8px',
+                          backgroundColor: '#6c757d',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: 3,
+                          cursor: 'pointer',
+                          fontSize: 11
+                        }}
+                      >
+                        Lịch sử chỉnh sửa
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -1377,6 +1447,49 @@ function DataEntry({ token }) {
           </div>
         </div>
       </div>
+      {showLogModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0,0,0,0.3)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{ background: 'white', borderRadius: 8, padding: 24, minWidth: 400, maxWidth: 600, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 2px 16px #0002' }}>
+            <h3 style={{ marginTop: 0 }}>Lịch sử chỉnh sửa</h3>
+            {logLoading ? (
+              <div>Đang tải...</div>
+            ) : logError ? (
+              <div style={{ color: 'red' }}>{logError}</div>
+            ) : editLogs.length === 0 ? (
+              <div>Không có chỉnh sửa nào.</div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8 }}>
+                <thead>
+                  <tr style={{ background: '#f0f0f0' }}>
+                    <th>Thời gian</th>
+                    <th>Người sửa</th>
+                    <th>Trường</th>
+                    <th>Giá trị cũ</th>
+                    <th>Giá trị mới</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {editLogs.map((log, idx) => (
+                    <tr key={idx}>
+                      <td>{new Date(log.edited_at).toLocaleString('vi-VN')}</td>
+                      <td>{log.editor_name}</td>
+                      <td>{log.field}</td>
+                      <td style={{ color: '#888' }}>{log.old_value}</td>
+                      <td style={{ color: '#388e3c', fontWeight: 'bold' }}>{log.new_value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <div style={{ textAlign: 'right', marginTop: 16 }}>
+              <button onClick={handleCloseLog} style={{ padding: '6px 18px', background: '#2196F3', color: 'white', border: 'none', borderRadius: 4, fontWeight: 'bold', cursor: 'pointer' }}>Đóng</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

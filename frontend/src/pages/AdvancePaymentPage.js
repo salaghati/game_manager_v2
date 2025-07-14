@@ -337,10 +337,10 @@ const AdvancePaymentPage = () => {
                     <div key={index} className="summary-item">
                       <div className="summary-header">
                         <h3>{item.user.full_name}</h3>
-                        <div className={`debt-amount ${item.total_balance < 0 ? 'owner-owes' : ''}`}>
+                        <div className={`debt-amount`} style={{ color: item.total_balance < 0 ? '#388e3c' : '#d32f2f', fontWeight: 'bold' }}>
                           {item.total_balance >= 0 
                             ? `Số nợ hiện tại: ${formatCurrency(item.total_balance)}`
-                            : `Số dư thừa: ${formatCurrency(Math.abs(item.total_balance))}`
+                            : `Số dư nợ hiện tại đang thừa ${formatCurrency(Math.abs(item.total_balance))}`
                           }
                         </div>
                       </div>

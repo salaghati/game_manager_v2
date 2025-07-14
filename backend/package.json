@@ -8,12 +8,15 @@
     "dev": "nodemon server.js",
     "build": "echo 'Build completed'",
     "check-env": "node scripts/check-env.js",
+    "deploy-check": "node scripts/deploy-check.js",
+    "force-migrate": "node scripts/force-migrate.js",
+    "check-logs": "node scripts/check-transaction-logs.js",
     "db:migrate": "npx sequelize-cli db:migrate",
     "db:migrate:prod": "NODE_ENV=production npx sequelize-cli db:migrate",
     "db:seed": "npx sequelize-cli db:seed:all",
     "db:seed:prod": "NODE_ENV=production npx sequelize-cli db:seed:all",
     "db:reset": "rm -f database.sqlite && npx sequelize-cli db:migrate && npx sequelize-cli db:seed:all",
-    "start:prod": "npm run check-env && npm run db:migrate:prod && npm start"
+    "start:prod": "npm run check-env && npm run db:migrate:prod && npm run check-logs && npm start"
   },
   "keywords": [],
   "author": "",
