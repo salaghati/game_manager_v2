@@ -1372,75 +1372,78 @@ function DataEntry({ token }) {
                       )}
                     </td>
                     <td>
-                      {index === 0 && h.id === history[0]?.id ? ( // Chỉ hiển thị Edit cho dòng đầu tiên (mới nhất) trong toàn bộ lịch sử
-                        editingTransaction === h.id ? (
-                          <div style={{ display: 'flex', gap: 5 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {index === 0 && h.id === history[0]?.id ? ( // Chỉ hiển thị Edit cho dòng đầu tiên (mới nhất) trong toàn bộ lịch sử
+                          editingTransaction === h.id ? (
+                            <div style={{ display: 'flex', gap: 5 }}>
+                              <button 
+                                onClick={handleSaveEdit}
+                                style={{
+                                  padding: '3px 8px',
+                                  backgroundColor: '#4CAF50',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: 3,
+                                  cursor: 'pointer',
+                                  fontSize: 11,
+                                  minWidth: '42px'
+                                }}
+                                disabled={loading}
+                              >
+                                Lưu
+                              </button>
+                              <button 
+                                onClick={handleCancelEdit}
+                                style={{
+                                  padding: '3px 8px',
+                                  backgroundColor: '#f44336',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: 3,
+                                  cursor: 'pointer',
+                                  fontSize: 11,
+                                  minWidth: '42px'
+                                }}
+                              >
+                                Hủy
+                              </button>
+                            </div>
+                          ) : (
                             <button 
-                              onClick={handleSaveEdit}
+                              onClick={() => handleStartEdit(h)}
                               style={{
-                                padding: '2px 8px',
-                                backgroundColor: '#4CAF50',
+                                padding: '3px 8px',
+                                backgroundColor: '#2196F3',
                                 color: 'white',
                                 border: 'none',
                                 borderRadius: 3,
                                 cursor: 'pointer',
-                                fontSize: 11
-                              }}
-                              disabled={loading}
-                            >
-                              Lưu
-                            </button>
-                            <button 
-                              onClick={handleCancelEdit}
-                              style={{
-                                padding: '2px 8px',
-                                backgroundColor: '#f44336',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: 3,
-                                cursor: 'pointer',
-                                fontSize: 11
+                                fontSize: 11,
+                                minWidth: '42px'
                               }}
                             >
-                              Hủy
+                              Edit
                             </button>
-                          </div>
+                          )
                         ) : (
-                          <button 
-                            onClick={() => handleStartEdit(h)}
-                            style={{
-                              padding: '3px 8px',
-                              backgroundColor: '#2196F3',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: 3,
-                              cursor: 'pointer',
-                              fontSize: 11,
-                              minWidth: '42px'
-                            }}
-                          >
-                            Edit
-                          </button>
-                        )
-                      ) : (
-                        <span style={{ color: '#999', fontSize: 11 }}>Chỉ sửa được ngày mới nhất</span>
-                      )}
-                      <button
-                        onClick={() => handleShowLog(h.id)}
-                        style={{
-                          marginLeft: 6,
-                          padding: '3px 8px',
-                          backgroundColor: '#5c6bc0',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: 3,
-                          cursor: 'pointer',
-                          fontSize: 11,
-                          minWidth: '42px'
-                        }}
-                      >
-                        Lịch sử
-                      </button>
+                          <span style={{ color: '#999', fontSize: 11, minWidth: '42px' }}>Chỉ sửa được ngày mới nhất</span>
+                        )}
+                        <button
+                          onClick={() => handleShowLog(h.id)}
+                          style={{
+                            padding: '3px 8px',
+                            backgroundColor: '#5c6bc0',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 3,
+                            cursor: 'pointer',
+                            fontSize: 11,
+                            minWidth: '42px'
+                          }}
+                        >
+                          Lịch sử
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
